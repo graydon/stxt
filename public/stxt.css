@@ -1,0 +1,19 @@
+table.ui {
+    background-color: #f0f0f0;
+    border: 1px solid black;
+}
+
+span#group-name {
+    margin: 1em;
+    font-size: 24pt;
+}
+
+tr#invite {
+    display: none;
+}
+
+td#invite-cell {
+    background-color: #eeeeee;
+    margin: 20px;
+    border: red solid 2px;
+}

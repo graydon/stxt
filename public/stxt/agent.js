@@ -1,0 +1,528 @@
+"use strict";
+if (typeof define !== 'function') { var define = require('amdefine')(module) }
+define(["stxt/stxt", "stxt/key", "stxt/hash", "stxt/group",
+        "stxt/tag", "stxt/msg", "stxt/graph", "stxt/state"],
+function(Stxt, Key, Hash, Group, Tag, Msg, Graph, State) {
+
+
+var log = Stxt.mkLog("agent");
+var klog = Stxt.mkLog("keyrot");
+
+var Agent = function(group, key, pair, peer, tag) {
+    Stxt.assert(group && (group instanceof Group));
+    Stxt.assert(key && (typeof key == "string"));
+    Stxt.assert(pair && (pair instanceof Object));
+    Stxt.assert(peer);
+    if (tag) {
+        tag instanceof Tag;
+    }
+
+    this.group = group;
+    this.key = key;
+    this.tag = tag;  // null => use peer tag
+    this.pair = pair;
+    this.next_pair = Key.genpair();
+    this.peer = peer;
+
+    this.next = null; // to be set
+
+    // caches
+    this.msgs = {};
+    this.decrypted = {};
+    this.graph = null;
+    this.state = null;
+
+    this.group.add_agent(this);
+};
+
+Agent.prototype = {
+
+    save: function(cb) {
+        var agent = this;
+        agent.peer.put_group(agent.group, function() {
+            agent.peer.put_agent(agent, cb);
+        });
+    },
+
+    from: function() {
+        // An agent will compose messages either from an assumed tag,
+        // specific to its participation in this group, or the default tag
+        // of its peer, if no assumed one exists.
+        if (this.tag) {
+            return this.tag;
+        } else {
+            return this.peer.tag;
+        }
+    },
+
+    decrypt_envelope: function(env) {
+        var eid = env.id;
+        if (eid in this.decrypted) {
+            return;
+        }
+        var m = env.decrypt(this.key);
+        this.decrypted[eid] = true;
+        var mid = m.id;
+        Stxt.assert(! (mid in this.msgs));
+        this.msgs[mid] = m;
+
+        // FIXME: incrementalize graph and state-building.
+        this.graph = null;
+        this.state = null;
+        return m;
+    },
+
+    decrypt_all: function() {
+        var a = this;
+        this.group.all_envelopes(function(e) {
+            a.decrypt_envelope(e);
+        });
+    },
+
+    all_msgs: function(f) {
+        this.decrypt_all();
+        for (var i in this.msgs) {
+            var m = this.msgs[i];
+            f(i,m);
+        }
+    },
+
+    get_msg: function(mid) {
+        this.decrypt_all();
+        Stxt.assert(mid in this.msgs);
+        return this.msgs[mid];
+    },
+
+    all_msgs_in_sorted_order: function(f) {
+        var msgs = [];
+        this.all_msgs(function(mid, m) {
+            msgs.push(m);
+        });
+        this.get_graph().sort_msgs(msgs);
+        for (var i in msgs) {
+            var m = msgs[i];
+            f(m.id, m);
+        }
+    },
+
+    get_msgs_by: function(field,val) {
+        Stxt.assert(typeof field == "string");
+        Stxt.assert(typeof val == "string");
+        var s = [];
+        this.all_msgs_in_sorted_order(function(mid, m) {
+            Stxt.assert(mid);
+            Stxt.assert(m);
+            if (m[field] == val) {
+                s.push(m);
+            }
+        });
+        return s;
+    },
+
+    get_graph: function(m) {
+        if (! this.graph) {
+            this.graph = new Graph(this.msgs);
+            this.graph.get_analysis();
+            Object.freeze(this.graph);
+        }
+        return this.graph;
+    },
+
+    get_current_exch_keys: function() {
+        var exchs = {};
+        if (this.get_graph().get_root() == null) {
+            // We're in group-founding position.
+            return exchs;
+        }
+        var party_size = Stxt.len(this.get_members());
+        this.all_msgs_in_sorted_order(function(mid, m) {
+            for (var i in m.keys) {
+                var k = m.keys[i];
+                var e = new Key.Exch(party_size,
+                                     i.split(","),
+                                     k);
+                exchs[e.name()] = e;
+            }
+        });
+        return exchs;
+    },
+
+    get_next_key_rotation: function() {
+
+        var from = this.from().toString();
+        var exchs = this.get_current_exch_keys();
+        var new_exchs = {};
+
+        var seeded_us = false;
+        var n_finished = 0;
+        var n_includes_us = 0;
+        var n_other = 0;
+
+        for (var i in exchs) {
+            if (i == from) {
+                seeded_us = true;
+            }
+            var e = exchs[i];
+            var nn = e.extended_name(from);
+            if (e.needs_user(from) &&
+                ! (nn in exchs)) {
+                var x = e.extend_with_user(from,
+                                           this.next_pair.pub);
+                exchs[x.name()] = x;
+                new_exchs[x.name()] = x;
+            } else {
+                if (e.is_finished()) {
+                    n_finished++;
+                } else if (e.has_user(from)) {
+                    n_includes_us++
+                } else {
+                    n_other++;
+                }
+
+            }
+        }
+        var nk = {};
+        for (i in new_exchs) {
+            e = new_exchs[i];
+            nk[i] = e.pub;
+        }
+
+        klog("{} in {:id} found {:len} live exchs",
+             this.from(), this.group.id, exchs);
+
+        klog("{:len} needed us, {} had us, {} finished, {} other",
+             new_exchs, n_includes_us, n_finished, n_other);
+
+        if (!seeded_us) {
+            klog("seeding for {}", this.from());
+            nk[from] = this.next_pair.pub;
+        }
+
+        return nk;
+    },
+
+    maybe_derive_next_key: function() {
+        //
+        // An agent is allowed to rotate to a new key (possibly
+        // publishing a root for its new group, if there isn't one yet)
+        // when the following is true:
+        //
+        //  - Every exchange key it is obliged to publish in order
+        //    to complete a rotation, it has published.
+        //
+        //  - It has the exchange key that is complete except-for
+        //    its own secret.
+        //
+        // FIXME: we're only checking the second rule here,
+        // not the first.
+        //
+        var from = this.from().toString();
+        var exchs = this.get_current_exch_keys();
+        for (var i in exchs) {
+            var e = exchs[i];
+            if (e.is_finished() &&
+                ! e.has_user(from)) {
+                klog("{} in {:id} found finished exch w/o us, deriving new key",
+                     this.from(), this.group.id);
+                return e.derive_final(this.next_pair.sec)
+            }
+        }
+        klog("{} in {:id} not ready to derive new key",
+            this.from(), this.group.id);
+        return null;
+    },
+
+    set_next: function(next_id) {
+        if (this.next) {
+            Stxt.assert(this.next == next_id);
+        } else {
+            this.next = next_id;
+        }
+    },
+
+    maybe_derive_next_agent: function(cb) {
+
+    var agent = this;
+    var peer = agent.peer;
+
+        // This will figure out if it's time to rotate, and if so
+        // derive a new key, make a new group, emit a root
+        // message, new agent, etc. It returns the new agent, or
+        // null if it's not time to rotate.
+        var next_key = this.maybe_derive_next_key();
+
+    if (!agent.next) {
+        if (next_key) {
+        var gid = Hash.hash(next_key);
+        this.set_next(gid);
+        }
+    }
+
+    if (agent.next) {
+            log("already DONE group {:id}, next group {:id}",
+        agent.group.id, agent.next);
+        agent.peer.has_agent(agent.next, function(has) {
+        if (has) {
+            agent.peer.get_agent(agent.next, cb);
+        } else {
+            var next_agent =
+            peer.new_agent_with_new_group(gid, next_key);
+            log("DONE group {:id}, derived next group {:id}",
+            agent.group.id, next_agent.group.id);
+            agent.set_next(next_agent.group.id);
+            next_agent.add_epoch(agent.get_graph().leaf_ids(),
+                     agent.get_state().snap());
+            agent.save(function() {
+            next_agent.save(function() {
+                if (cb) cb(next_agent)
+            });
+            });
+        }
+        });
+    } else {
+        if (cb) {
+        cb(null);
+        }
+    }
+    },
+
+    member_has_committed: function(member) {
+    Stxt.assert(member instanceof Tag);
+    var mem = member.toString();
+        this.decrypt_all();
+        for (var i in this.msgs) {
+            var m = this.msgs[i];
+        if (m.from.toString() == mem) {
+        return true;
+        }
+    }
+    return false;
+    },
+
+    members_have_committed: function() {
+        var members = this.get_members();
+        var committed_members = {};
+        var n = Stxt.len(members);
+
+        for (var i in members) {
+            klog("group {:id} member {}", this.group.id, i);
+        }
+
+        if (n < 1) { return true; }
+
+        this.decrypt_all();
+
+        for (var i in this.msgs) {
+            if (n < 1) {
+                break;
+            }
+            var m = this.msgs[i];
+            var f = m.from.toString()
+            klog("group {:id} msg from {}",
+                 this.group.id, m.from);
+            if (f in members &&
+                !(f in committed_members)) {
+                --n;
+                committed_members[f] = true;
+            }
+        }
+
+        klog("group {:id} {:len}/{:len} " +
+             "have committed => group is {}committed",
+             this.group.id, committed_members, members,
+             (n == 0 ? "" : "not "));
+        return n==0;
+    },
+
+    get_state: function() {
+
+        function for_each_tkv(ob, f) {
+            for (var t in ob) {
+                for (var k in ob[t]) {
+                    f(t,k,ob[t][k])
+                }
+            }
+        }
+
+        if (!this.state) {
+
+            // The "state" of the group is established in the
+            // following fashion:
+            //
+            //   - Start with the root's body as state
+            //
+            //   - Add all the 'add' msg k/v pairs
+            //   - Change all the 'chg' msg k/v1=v2 pairs
+            //   - Delete all the 'del' k/v pairs
+
+            var adds = this.get_msgs_by("kind", "add");
+            var chgs = this.get_msgs_by("kind", "chg");
+            var dels = this.get_msgs_by("kind", "del");
+            var root = this.get_graph().get_root();
+
+            var state = new State();
+
+            if (!root) {
+                return state;
+            }
+
+            // NB: the state values in root are arrays from
+            // the snapshot of previous state multimap vals.
+            if ('body' in root && 'state' in root.body) {
+                for_each_tkv(root.body.state, function(t,k,vs) {
+                    Stxt.assert(vs instanceof Array);
+                    vs.forEach(function(v) {
+                        state.add_tkv(t,k,v);
+                    });
+                });
+            }
+
+            adds.forEach(function(m) {
+                for_each_tkv(m.body, function(t,k,v) {
+                    state.add_tkv(t,k,v);
+                });
+            });
+
+            chgs.forEach(function(m) {
+                for_each_tkv(m.body, function(t,k,v) {
+                    state.chg_tkv(t,k,v[0],v[1]);
+                });
+            });
+
+            dels.forEach(function(m) {
+                for_each_tkv(m.body, function(t,k,v) {
+                    state.del_tkv(t,k,v);
+                });
+            });
+
+            this.state = state;
+            Object.freeze(this.state);
+        }
+        return this.state;
+    },
+
+    add_msg_raw: function(m) {
+        this.group.add_envelope(m.encrypt(this.key));
+    },
+
+    add_msg: function(kind, body, parents) {
+        if (!parents) {
+            parents = this.get_graph().leaf_ids();
+        }
+        var nk = this.get_next_key_rotation();
+        var m = new Msg(this.group.id,
+                        parents,
+                        this.from(),
+                        kind, body, nk);
+        this.add_msg_raw(m);
+        return m;
+    },
+
+    add_epoch: function(parents, state) {
+        Stxt.assert(Stxt.len(this.group.envelopes) == 0);
+        var body = {state: state};
+        log("NEW EPOCH for group {:id}, from {}",
+            this.group.id, this.from());
+        this.add_msg("epoch", {state: state}, parents);
+    },
+
+    add_epoch_if_missing: function() {
+        if (Stxt.len(this.group.envelopes) == 0) {
+            var members = {};
+            members[this.from().nick] = [this.from().guid];
+            this.add_epoch([], {member: members});
+        }
+    },
+
+    add_state: function(t,k,v) {
+        var ty = {};
+        ty[k] = v;
+        var body = {};
+        body[t] = ty;
+        this.add_msg("add", body);
+    },
+
+    chg_state: function(t,k,v1,v2) {
+        Stxt.assert(typeof t == "string")
+        Stxt.assert(typeof k == "string")
+        Stxt.assert(typeof v1 == "string")
+        Stxt.assert(typeof v2 == "string")
+        var ty = {};
+        ty[k] = [v1,v2];
+        var body = {};
+        body[t] = ty;
+        this.add_msg("chg", body);
+    },
+
+    del_state: function(t,k,v) {
+        var ty = {};
+        ty[k] = v;
+        var body = {};
+        body[t] = ty;
+        this.add_msg("del", body);
+    },
+
+    add_ref: function(name, id) { this.add_state("ref", name, id); },
+    del_ref: function(name, id) { this.del_state("ref", name, id); },
+    chg_ref: function(name, a, b) { this.chg_state("ref", name, a, b); },
+
+    add_member: function(tag) { this.add_state("member", tag.nick, tag.guid); },
+    del_member: function(tag) { this.del_state("member", tag.nick, tag.guid); },
+    chg_member: function(a,b) {
+        if (a.nick == b.nick) {
+            this.chg_state("member", a.nick, a.guid, b.guid);
+        } else {
+            this.del_state("member", a.nick, a.guid);
+            this.add_state("member", b.nick, b.guid);
+        }
+    },
+
+    get_refs: function() {
+        return this.get_state().get_keys("ref");
+    },
+
+    add_link_ref: function(id) { this.add_ref("link", id); },
+    chg_link_ref: function(a,b) { this.chg_ref("link", a, b); },
+
+    get_link_refs: function() {
+        return this.get_state().get_vals("ref", "link");
+    },
+
+    get_all_refs: function() {
+        var all_refs = {};
+        var refs = this.get_refs();
+        for (var i in refs) {
+            for (var j in refs[i]) {
+                all_refs[j] = true;
+            }
+        }
+        return Object.keys(all_refs);
+    },
+
+    get_members: function() {
+        var nicks = this.get_state().get_keys("member");
+        var members = {};
+        for (var nick in nicks) {
+            nicks[nick].forEach(function(guid) {
+                var tag = new Tag("u", nick, guid);
+                members[tag.toString()] = tag;
+            });
+        }
+        return members;
+    },
+
+    has_member: function(tag) {
+        Stxt.assert(tag instanceof Tag);
+        var nicks = this.get_state().get_keys("member");
+        return tag.nick in nicks &&
+            nicks[tag.nick].indexOf(tag.guid) != -1;
+    },
+
+    add_ping: function() {
+        this.add_msg("ping", {});
+    }
+};
+
+Stxt.Agent = Agent;
+return Agent;
+});

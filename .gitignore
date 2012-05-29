@@ -6,10 +6,13 @@ lib-cov
 *.out
 *.pid
 *.gz
+*~
+ministore-stxt-node/
+curve25519/
+sjcl-full/
 
 pids
 logs
 results
 
-node_modules
 npm-debug.log

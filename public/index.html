@@ -1,0 +1,67 @@
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="stxt.css" />
+    <script type="text/javascript" src="require.js"></script>
+    <script type="text/javascript">
+      "use strict";
+      requirejs.config({ baseUrl: ".",
+                         shim: {zepto: { exports: "$" },
+                                qr: { exports: "qrcode" },
+                                vizhash: { exports: "vizhash" },
+                                sjcl: { exports: "sjcl" }}});
+
+      requirejs(["stxt/web"], function(web) { web.go() });
+    </script>
+  </head>
+  <body>
+    <table class="ui">
+      <tr>
+        <td colspan="1">
+          <table class="ui" width="100%">
+            <tr>
+              <td align="left">
+                <span id="group-viz"></span>
+              </td>
+              <td align="center">
+                <span id="group-name"></span>
+              </td>
+              <td align="right">
+                <span id="group-qr"></span>
+              </td>
+            </tr>
+            <tr id="invite">
+              <td id="invite-cell" colspan="3" align="center">
+                <h3>Invite for this group:</h3>
+                <div id="invite-qr"></div>
+                <a id="invite-link" href="">direct link</a><br/>
+                <button id="dismiss">dismiss</button>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <textarea id="output" rows="15" cols="80" readonly="true">
+          </textarea>
+        </td>
+        <td>
+          <h4>Members:</h4>
+          <table class="ui" id="members">
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <input type="text" id="input" size="80" />
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <textarea id="log" rows="5" cols="80" readonly="true">
+          </textarea>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
