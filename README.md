@@ -94,7 +94,7 @@ following technical details:
 
   - It's an _anarchic_ system, even at the level of an individual
     group: groups protect secrecy and induce a carrying-graph,
-    but to not provide any other authority mechanism. All members
+    but do not provide any other authority mechanism. All members
     of a group are equally empowered, and can all lie about their
     identity, kick one another out, change their names, or the
     like. There's no ACL system, no ownership, no read-write
