@@ -29,7 +29,7 @@ properties:
     phones directly_, using their local radios, not sending your
     conversation through the phone network or internet.
 
-  - Your words, and your friends words, are are so strongly
+  - Your words, and your friends words, are not so strongly
     linked to you that you can't deny ever having said them; to
     some extent you are protected from your past conversations.
 
