@@ -1,3 +1,10 @@
+// Copyright 2011-2013 Mozilla Foundation.
+//
+// Licensed under the Apache License, Version 2.0
+// <LICENSE.txt or http://www.apache.org/licenses/LICENSE-2.0>
+// This file may not be copied, modified, or distributed
+// except according to those terms.
+
 // Messages and groups are "tagged" in stxt with a particular
 // identity. This is not in any way integral to data structures; the groups
 // all run off keys. A tag is a _claim_ to authorship or identity, that you

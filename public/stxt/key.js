@@ -1,3 +1,10 @@
+// Copyright 2011-2013 Mozilla Foundation.
+//
+// Licensed under the Apache License, Version 2.0
+// <LICENSE.txt or http://www.apache.org/licenses/LICENSE-2.0>
+// This file may not be copied, modified, or distributed
+// except according to those terms.
+
 /* We're trying to do a key agreement between multiple parties.
  *
  * Domain parameters:

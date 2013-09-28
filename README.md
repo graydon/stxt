@@ -1,5 +1,8 @@
 # Sneakertext
 
+Copyright: 2011-2013 Mozilla Foundation
+License: ASL2.0, see LICENSE.txt
+
 This is an experimental tool for carrying on secure group
 conversations. Compared to similar tools, it has a number of unusual
 properties, that may or may not be important depending on how

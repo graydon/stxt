@@ -1,3 +1,10 @@
+// Copyright 2011-2013 Mozilla Foundation.
+//
+// Licensed under the Apache License, Version 2.0
+// <LICENSE.txt or http://www.apache.org/licenses/LICENSE-2.0>
+// This file may not be copied, modified, or distributed
+// except according to those terms.
+
 // A 'web' represents a JSON-RPC interface to a 'smart' webserver,
 // that is, one usable as a 'remote' in the sense of stxt.sync. Note
 // that it is not necessarily the web server that this file was

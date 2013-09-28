@@ -1,3 +1,10 @@
+// Copyright 2011-2013 Mozilla Foundation.
+//
+// Licensed under the Apache License, Version 2.0
+// <LICENSE.txt or http://www.apache.org/licenses/LICENSE-2.0>
+// This file may not be copied, modified, or distributed
+// except according to those terms.
+
 // A sync operation is focused on reconciling some portion of a peer's
 // state with a remote peer. The remote peer is presented behind an
 // RPC interface. At this point there's only one, which is JSON-RPC,
