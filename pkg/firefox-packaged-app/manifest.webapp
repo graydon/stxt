@@ -1,0 +1,18 @@
+{
+  "version": "0.1.0",
+  "name": "sneakertext",
+  "description": "distributed chat system",
+  "launch_path": "/app-template/index.html",
+  "icons": {
+    "16": "/app-template/app-icons/icon-16.png",
+    "48": "/app-template/app-icons/icon-48.png",
+    "128": "/app-template/app-icons/icon-128.png"
+  },
+  "developer": {
+    "name": "Graydon Hoare",
+    "url": "http://stxt.net"
+  },
+  "locales": {
+  },
+  "default_locale": "en"
+}
