@@ -29,6 +29,8 @@
 
 		"grunt": "~0.4.1",
 
+		"grunt-cli": "~0.1.11",
+
 		"grunt-contrib-clean": "~0.5.0",
 
 		"grunt-contrib-jshint": "~0.6.3",
@@ -51,7 +53,7 @@
 
 	"scripts": {
 
-		"test": "grunt test",
+		"test": "node_modules/.bin/grunt test",
 
 		"blanket": {
 			"pattern": [
