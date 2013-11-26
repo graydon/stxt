@@ -6,9 +6,10 @@ module.exports = function(grunt) {
 			// remove all previous browserified builds
 			pkg: [
 				'./pkg/*.js',
-				'./pkg/*/stxt.standalone.js',
-				'./pkg/*/test/stxt.require.js',
-				'./pkg/*/test/suite.js',
+				'./pkg/*/*/stxt.standalone.js',
+				'./pkg/*/*/test/stxt.require.js',
+				'./pkg/*/*/test/suite.js',
+				'./pkg/*/*/test/mocha.*',
 			],
 			// remove all distrbutable artifacts (zip/xpi/crx)
 			dist: [
@@ -109,7 +110,7 @@ module.exports = function(grunt) {
 		// grunt-crx (chrome extension) section
 		//////////////////////////////////////////////////
 		crx: {
-			sneakertext: {
+			stxt: {
 				"src": "pkg/chrome-extension",
 				"baseURL": "https://stxt.net/pkg/chrome-extension",
 				"dest": "dist/chrome-extension",
@@ -139,12 +140,25 @@ module.exports = function(grunt) {
 
 
 	grunt.registerTask("copylibs", "copy libs into pkg dirs, before packaging", function() {
-		grunt.file.copy("pkg/stxt.standalone.js", "pkg/chrome-packaged-app/stxt.standalone.js");
-		grunt.file.copy("pkg/stxt.require.js", "pkg/chrome-packaged-app/test/stxt.require.js");
-		grunt.file.copy("pkg/suite.js", "pkg/chrome-packaged-app/test/suite.js");
 
-		grunt.file.copy("node_modules/mocha/mocha.js", "pkg/chrome-packaged-app/test/mocha.js");
-		grunt.file.copy("node_modules/mocha/mocha.css", "pkg/chrome-packaged-app/test/mocha.css");
+		["chrome-packaged-app/js",
+		 "chrome-extension/js",
+		 "firefox-addon/lib",
+		 "firefox-packaged-app/scripts"].forEach(function(dir) {
+
+			 function pkg(s,d) {
+				 d = "pkg/" + dir + "/" + d;
+				 grunt.log.writeln("Copying " + s + " to " + d);
+				 grunt.file.copy(s, d);
+			 }
+
+			 pkg("pkg/stxt.standalone.js", "stxt.standalone.js");
+			 pkg("pkg/stxt.require.js", "test/stxt.require.js");
+			 pkg("pkg/suite.js", "test/suite.js");
+
+			 pkg("node_modules/mocha/mocha.js", "test/mocha.js");
+			 pkg("node_modules/mocha/mocha.css", "test/mocha.css");
+		 });
 	});
 
 	grunt.loadNpmTasks('grunt-contrib-clean');
@@ -172,12 +186,11 @@ module.exports = function(grunt) {
 		"clean",
 		"browserify",
 		"copylibs",
+		"mozilla-addon-sdk",
 		"mozilla-cfx-xpi",
 		"crx",
 		"zip"
 	]);
 
 	grunt.registerTask('test', [ "mochacov" ]);
-	grunt.registerTask('tidy', [ "clean" ]);
-
 };

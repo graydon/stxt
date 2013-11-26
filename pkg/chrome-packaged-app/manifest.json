@@ -4,7 +4,7 @@
 	"version": "0.1.0",
 	"app": {
 		"background": {
-			"scripts": ["background.js"]
+			"scripts": ["js/background.js"]
 		}
 	},
 	"icons": {
