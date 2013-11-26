@@ -38,6 +38,9 @@
 		"grunt-contrib-uglify": "~0.2.2",
 
 		"grunt-mocha-cov": "~0.0.7",
+		"mocha-term-cov-reporter": "0.1.5",
+		"mocha-lcov-reporter": "0.0.1",
+		"blanket": "1.1.5",
 
 		"grunt-browserify": "~1.2.11",
 
@@ -53,11 +56,11 @@
 
 	"scripts": {
 
-		"test": "node_modules/.bin/grunt test",
+		"test": "node_modules/.bin/grunt travis",
 
 		"blanket": {
 			"pattern": [
-				"src"
+				"stxt/src/"
 			]
 		}
 	}

@@ -1,0 +1,12 @@
+{
+	"curly": true,
+	"eqnull": true,
+	"eqeqeq": true,
+	"undef": true,
+	"unused": true,
+	"trailing": true,
+	"strict": true,
+
+	"node": true,
+	"browser": true
+}
