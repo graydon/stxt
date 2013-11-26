@@ -10,6 +10,7 @@ lib-cov
 ministore-stxt-node/
 curve25519/
 sjcl-full/
+node_modules/
 
 pids
 logs

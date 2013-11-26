@@ -1,4 +1,8 @@
-# Sneakertext
+# Sneakertext (stxt)
+
+[![Build Status](https://secure.travis-ci.org/graydon/stxt.png)](http://travis-ci.org/graydon/stxt)
+[![Coverage Status](https://coveralls.io/repos/graydon/stxt/badge.png)](https://coveralls.io/r/graydon/stxt)
+[![Dependency Status](https://david-dm.org/graydon/stxt.png)](http://david-dm.org/graydon/stxt)
 
 Copyright: 2011-2013 Mozilla Foundation
 License: ASL2.0, see LICENSE.txt

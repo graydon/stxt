@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "name": "sneakertext",
+  "name": "stxt",
   "description": "distributed chat system",
   "launch_path": "/app-template/index.html",
   "icons": {

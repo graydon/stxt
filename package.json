@@ -1,13 +1,13 @@
 {
-	"name": "sneakertext",
+	"name": "stxt",
 	"description": "distributed chat system",
 	"keywords": ["chat", "distributed"],
 	"homepage": "http://stxt.net",
-	"repository": "git://github.com/graydon/sneakertext.git",
+	"repository": "git://github.com/graydon/stxt.git",
 	"version": "0.1.0",
 
 	"bugs": {
-		"url": "http://github.com/graydon/sneakertext/issues",
+		"url": "http://github.com/graydon/stxt/issues",
 		"email": "graydon@pobox.com"
 	},
 
@@ -16,18 +16,26 @@
 	"dependencies": {
 		"js-nacl": "0.5.0",
 		"ecma-nacl": "1.0.0",
-		"sjcl": "1.0.0"
+		"sjcl": "1.0.0",
+		"q": "0.9.7",
+		"debug": "0.7.4",
+
+		"fomatto": "0.5.0",
+		"chai": "1.8.1",
+		"mocha": "1.14.0"
 	},
 
 	"devDependencies": {
+
 		"grunt": "~0.4.1",
+
+		"grunt-contrib-clean": "~0.5.0",
 
 		"grunt-contrib-jshint": "~0.6.3",
 		"grunt-contrib-nodeunit": "~0.2.0",
 		"grunt-contrib-uglify": "~0.2.2",
 
-		"grunt-mocha": "~0.4.1",
-		"grunt-mocha-test": "~0.7.0",
+		"grunt-mocha-cov": "~0.0.7",
 
 		"grunt-browserify": "~1.2.11",
 
@@ -38,5 +46,13 @@
 		"grunt-lint5": "~0.1.4",
 		"grunt-eslint": "~0.1.3",
 		"grunt-jslint": "~1.1.1"
+	},
+
+	"scripts": {
+		"blanket": {
+			"pattern": [
+				"src"
+			]
+		}
 	}
 }

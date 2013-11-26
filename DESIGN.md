@@ -115,3 +115,12 @@ The newly-invited member tag should be added to the group before sending
 the invite, so the group does not rotate-away from the group ID in question
 before the new invitee actually attempts to join.
 
+## Testing / CI automation
+
+Will investigate:
+
+  - travis-ci.org (basic)
+  - coveralls.io (coverage)
+  - saucelabs.com (multi-browsers, selenium)
+  - ci.testling.com (multi-browsers)
+  - david-dm.org (dependencies)
