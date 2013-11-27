@@ -8,7 +8,7 @@
 		}
 	},
 	"icons": {
-		"16": "icon-16.png",
-		"128": "icon-128.png"
+		"16": "png/icon-16.png",
+		"128": "png/icon-128.png"
 	}
 }

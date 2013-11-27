@@ -11,6 +11,7 @@ ministore-stxt-node/
 curve25519/
 sjcl-full/
 node_modules/
+tmp/
 
 pids
 logs

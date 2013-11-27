@@ -178,10 +178,10 @@ module.exports = function(grunt) {
 
     grunt.registerTask("copylibs", "copy libs into pkg dirs, before packaging", function() {
 
-        ["chrome-packaged-app/js",
-         "chrome-extension/js",
-         "firefox-addon/lib",
-         "firefox-packaged-app/scripts"].forEach(function(dir) {
+        ["chrome-packaged-app",
+         "chrome-extension",
+         "firefox-addon",
+         "firefox-packaged-app"].forEach(function(dir) {
 
              function pkg(s,d) {
                  d = "pkg/" + dir + "/" + d;
@@ -189,12 +189,12 @@ module.exports = function(grunt) {
                  grunt.file.copy(s, d);
              }
 
-             pkg("pkg/stxt.standalone.js", "stxt.standalone.js");
-             pkg("pkg/stxt.require.js", "test/stxt.require.js");
-             pkg("pkg/suite.js", "test/suite.js");
+             pkg("pkg/stxt.standalone.js", "js/stxt.standalone.js");
+             pkg("pkg/stxt.require.js", "js/test/stxt.require.js");
+             pkg("pkg/suite.js", "js/test/suite.js");
 
-             pkg("node_modules/mocha/mocha.js", "test/mocha.js");
-             pkg("node_modules/mocha/mocha.css", "test/mocha.css");
+             pkg("node_modules/mocha/mocha.js", "js/test/mocha.js");
+             pkg("node_modules/mocha/mocha.css", "css/test/mocha.css");
          });
     });
 
@@ -219,8 +219,8 @@ module.exports = function(grunt) {
 
     // Default task(s).
     grunt.registerTask('default', [
-        "mochacov",
         "clean",
+        "test",
         "browserify",
         "copylibs",
         "mozilla-addon-sdk",
