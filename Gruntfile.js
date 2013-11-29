@@ -10,10 +10,10 @@ module.exports = function(grunt) {
             // remove all previous browserified builds
             pkg: [
                 './pkg/*.js',
-                './pkg/*/*/stxt.standalone.js',
-                './pkg/*/*/test/stxt.require.js',
-                './pkg/*/*/test/suite.js',
-                './pkg/*/*/test/mocha.*',
+                './pkg/**/stxt.standalone.js',
+                './pkg/**/test/stxt.require.js',
+                './pkg/**/test/suite.js',
+                './pkg/**/test/mocha.*',
             ],
             // remove all distrbutable artifacts (zip/xpi/crx)
             dist: [
@@ -183,7 +183,7 @@ module.exports = function(grunt) {
 
         ["chrome-packaged-app",
          "chrome-extension",
-         "firefox-addon",
+         "firefox-addon/data",
          "firefox-packaged-app"].forEach(function(dir) {
 
              function pkg(s,d) {

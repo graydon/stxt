@@ -1,9 +1,9 @@
 {
-  "name": "stxt",
-  "fullName": "stxt",
-  "id": "jid1-jHmYRc7KmvpstQ",
-  "description": "distributed chat system",
-  "author": "Graydon Hoare",
-  "license": "ASL 2.0",
-  "version": "0.1.0"
+    "name": "stxt",
+    "fullName": "stxt",
+    "id": "jid1-jHmYRc7KmvpstQ",
+    "description": "distributed chat system",
+    "author": "Graydon Hoare",
+    "license": "ASL 2.0",
+    "version": "0.1.0"
 }
