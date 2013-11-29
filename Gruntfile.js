@@ -26,7 +26,8 @@ module.exports = function(grunt) {
         //////////////////////////////////////////////////
         jshint: {
             options: {
-                jshintrc: '.jshintrc'
+                jshintrc: '.jshintrc',
+                reporter: './etc/jshint-emacs-reporter.js'
             },
             src: [ 'Gruntfile.js',
                    '.jshintrc',
@@ -176,7 +177,9 @@ module.exports = function(grunt) {
     });
 
 
-    grunt.registerTask("copylibs", "copy libs into pkg dirs, before packaging", function() {
+    grunt.registerTask("copylibs",
+                       "copy libs into pkg dirs, before packaging",
+                       function() {
 
         ["chrome-packaged-app",
          "chrome-extension",
@@ -229,8 +232,11 @@ module.exports = function(grunt) {
         "zip"
     ]);
 
-    grunt.registerTask('test', [ 'jshint', 'mochacov:unit', 'mochacov:coverage']);
+    grunt.registerTask('unit', [ 'mochacov:unit' ]);
+    grunt.registerTask('test', [ 'jshint', 'mochacov:unit',
+                                 'mochacov:coverage']);
 
-    grunt.registerTask('travis', ['jshint', 'mochacov:unit', 'mochacov:coverage', 'mochacov:coveralls']);
+    grunt.registerTask('travis', ['jshint', 'mochacov:unit',
+                                  'mochacov:coverage', 'mochacov:coveralls']);
 };
 })();
