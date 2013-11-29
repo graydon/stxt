@@ -7,7 +7,9 @@
 
 var Assert = require('chai').assert;
 var Stxt = require('../src/stxt.js');
-var Hash = require('../src/hash.js');
+
+var Hash = Stxt.Hash;
+var Tag = Stxt.Tag;
 
 describe('Basic', function(){
     it('testsuite functions', function(){
@@ -15,7 +17,7 @@ describe('Basic', function(){
     });
 });
 
-describe('Hash', function(){
+describe('Hash (sha256)', function(){
     it('passes 3 sha256 test vectors', function(){
         var sha256_tvecs = [
             // Nb: the test input is JSON.stringify(input), so 'a' is actually '"a"'.
@@ -39,7 +41,17 @@ describe('Hash', function(){
             Assert.equal(Hash.hmac("key", pair[0]), pair[1]);
         });
     });
+});
 
+describe('Tag', function(){
+    var bob = Tag.new_user('bob');
+    it('generates tags with correct nick and kind', function(){
+        Assert.equal(bob.kind, 'u');
+        Assert.equal(bob.nick, 'bob');
+    });
+    it('can re-parse its own stringification', function(){
+        Assert.deepEqual(bob, Tag.parse(bob.toString()));
+    });
 });
 
 describe('Curve25519', function() {
