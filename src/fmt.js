@@ -9,7 +9,7 @@
 "use strict";
 
 var Assert = require('./assert.js');
-var fomatto = require('fomatto');
+var fomatto = require('./fomatto.js');
 
 function abbrev(x) {
     Assert.typeOf(x, 'string');

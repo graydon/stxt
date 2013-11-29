@@ -10,7 +10,6 @@ var Stxt = {
 
     sjcl: require('sjcl'),
 	curve25519: require('./curve25519.js'),
-    q: require('q'),
 
 	Assert: require('./assert.js'),
 	Config: require('./config.js'),
