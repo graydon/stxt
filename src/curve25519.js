@@ -1,3 +1,5 @@
+/* jshint maxlen: 150 */
+
 // Copyright (c) 2007 Michele Bini
 //
 // Copyright (c) 2013 Mozilla Foundation
