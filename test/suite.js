@@ -3,14 +3,43 @@
 
 /* global describe */
 /* global it */
+/* jshint maxlen: 100 */
 
-var assert = require('chai').assert;
-var stxt = require('../src/stxt.js');
+var Assert = require('chai').assert;
+var Stxt = require('../src/stxt.js');
+var Hash = require('../src/hash.js');
 
 describe('Basic', function(){
     it('testsuite functions', function(){
-        assert(stxt.return_true());
+        Assert.ok(Stxt.return_true());
     });
+});
+
+describe('Hash', function(){
+    it('passes 3 sha256 test vectors', function(){
+        var sha256_tvecs = [
+            // Nb: the test input is JSON.stringify(input), so 'a' is actually '"a"'.
+            ['a', 'ac8d8342bbb2362d13f0a559a3621bb407011368895164b628a54f7fc33fc43c'],
+            ['dog', 'a52e833634f22ad98e3ff8814fa79b59d3e5645dcf7cca077c606402c0d2d4f3'],
+            ['cat', 'e852be0aa593e30e99f250e7b39a3741d00bb1b86796303bded2c9aa5d7fcc08']
+        ];
+        sha256_tvecs.forEach(function(pair) {
+            Assert.equal(Hash.hash(pair[0]), pair[1]);
+        });
+    });
+
+    it('passes 3 sha256-hmac test vectors', function(){
+        var sha256_hmac_tvecs = [
+            // Nb: the test input is JSON.stringify(input), so 'a' is actually '"a"'.
+            ['a', 'ff35f5eb3de1ed78d45a5cbd64c3907017846831f34c4a5c760786a730a4ece4'],
+            ['dog', '883be5dd16f36bb8f42859c2bc74825723ec9e3612405361589541773bcc1922'],
+            ['cat', 'eda926345c0cfd718c43a645403cd918f55b5b39c4d9687ecf91ed75bc38ef66']
+        ];
+        sha256_hmac_tvecs.forEach(function(pair) {
+            Assert.equal(Hash.hmac("key", pair[0]), pair[1]);
+        });
+    });
+
 });
 
 describe('Curve25519', function() {
@@ -48,10 +77,10 @@ describe('Curve25519', function() {
              "fd52d04fe48fe65107680ee175cbfab3fb526e7412bc95806a44c6f88676f877"],
         ];
         donna_tvecs.forEach(function(triple) {
-            var c255 = stxt.curve25519;
+            var c255 = Stxt.curve25519;
             var r = c255.crypto_scalarmult(c255.from_hex(triple[0]),
                                            c255.from_hex(triple[1]));
-            assert.equal(c255.to_hex(r), triple[2]);
+            Assert.equal(c255.to_hex(r), triple[2]);
         });
     });
 });

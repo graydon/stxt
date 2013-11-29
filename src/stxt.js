@@ -1,15 +1,26 @@
 (function() {
 "use strict";
 
-var c255 = require('./curve25519.js');
-
 function return_true() {
 	return true;
 }
 
-module.exports = {
+var Stxt = {
 	return_true: return_true,
-	curve25519: c255
+
+    sjcl: require('sjcl'),
+	curve25519: require('./curve25519.js'),
+    q: require('q'),
+
+	Assert: require('./assert.js'),
+	Config: require('./config.js'),
+	Fmt: require('./fmt.js'),
+	Hash: require('./hash.js'),
+	Tag: require('./tag.js'),
+	Trace: require('./trace.js'),
+	Uletter: require('./uletter.js'),
 };
+
+module.exports = Stxt;
 
 })();
