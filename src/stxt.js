@@ -15,6 +15,7 @@ var Stxt = {
 	Config: require('./config.js'),
 	Fmt: require('./fmt.js'),
 	Hash: require('./hash.js'),
+	Msg: require('./msg.js'),
 	Tag: require('./tag.js'),
 	Trace: require('./trace.js'),
 	Uletter: require('./uletter.js'),
