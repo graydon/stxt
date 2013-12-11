@@ -5,12 +5,12 @@ lib-cov
 *.dat
 *.out
 *.pid
-*.gz
 *~
 ministore-stxt-node/
 curve25519/
 sjcl-full/
-node_modules/
+
+*.{node,a,o,dylib}
 tmp/
 
 pids

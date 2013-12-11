@@ -1,0 +1,5 @@
+lib/coveralls.js:
+  based on original works by Gregg Caines Copyright (c) 2013
+
+lib/mocha.js, tasks/mocha-coveralls.js:
+  based on original works by Roland Warmerdam Copyright (c) 2013
