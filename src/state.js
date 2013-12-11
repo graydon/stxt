@@ -5,10 +5,10 @@
 // This file may not be copied, modified, or distributed
 // except according to those terms.
 
+(function() {
 "use strict";
-if (typeof define !== 'function') { var define = require('amdefine')(module) }
-define(["stxt/stxt"],
-function(Stxt) {
+
+var Assert = require('./assert.js');
 
 var State = function() {
     this.types = {};
@@ -22,7 +22,7 @@ State.prototype = {
 
     get_keys: function(t) {
         if (t in this.types) {
-            return this.types[t]
+            return this.types[t];
         } else {
             return {};
         }
@@ -53,25 +53,25 @@ State.prototype = {
     },
 
     add_tkv: function(t,k,v) {
-        Stxt.assert(typeof t == "string");
-        Stxt.assert(typeof k == "string");
-        Stxt.assert(typeof v == "string");
+        Assert.isString(t);
+        Assert.isString(k);
+        Assert.isString(v);
         this.get_tk(t,k).push(v);
     },
 
     del_tkv: function(t,k,v) {
-        Stxt.assert(typeof t == "string");
-        Stxt.assert(typeof k == "string");
-        Stxt.assert(typeof v == "string");
+        Assert.isString(t);
+        Assert.isString(k);
+        Assert.isString(v);
         // del deletes a single k=v pair. If no such pair
         // exists, it does nothing.
         var ty = this.get_t(t);
         if (k in ty) {
             var e = ty[k];
             var ix = e.indexOf(v);
-            if (ix != -1) {
-                e.splice(ix,1)
-                if (e.length == 0) {
+            if (ix !== -1) {
+                e.splice(ix,1);
+                if (e.length === 0) {
                     delete ty[k];
                 }
                 return true;
@@ -81,10 +81,10 @@ State.prototype = {
     },
 
     chg_tkv: function(t,k,v1,v2) {
-        Stxt.assert(typeof t == "string");
-        Stxt.assert(typeof k == "string");
-        Stxt.assert(typeof v1 == "string");
-        Stxt.assert(typeof v2 == "string");
+        Assert.isString(t);
+        Assert.isString(k);
+        Assert.isString(v1);
+        Assert.isString(v2);
         // chg is exactly the same as add+del, it changes
         // only _one_ occurrence of t:k=v1 => t:k=v2, not all.
         //
@@ -95,6 +95,5 @@ State.prototype = {
     }
 };
 
-Stxt.State = State;
-return State;
-});
+module.exports = State;
+})();

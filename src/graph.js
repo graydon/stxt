@@ -8,12 +8,15 @@
 // Models a fully-decrypted group (message-set) as a graph based
 // on the ancestry links. Graph-analytic algorithms go here.
 
+(function() {
 "use strict";
-if (typeof define !== 'function') { var define = require('amdefine')(module) }
-define(["stxt/stxt"],
-function(Stxt) {
 
-var log = Stxt.mkLog("graph");
+var Fmt = require('./fmt.js');
+var Trace = require('./trace.js');
+var Assert = require('./assert.js');
+var Msg = require('./msg.js');
+
+var log = Trace.mkLog("graph");
 
 var Graph = function(msgs) {
     this.msgs = msgs;
@@ -30,7 +33,7 @@ Graph.prototype = {
     },
 
     get_msg: function(mid) {
-        Stxt.assert(mid in this.msgs);
+        Assert.ok(mid in this.msgs);
         return this.msgs[mid];
     },
 
@@ -84,7 +87,7 @@ Graph.prototype = {
             this.all_msgs(function(mid, m) {
                 graph.index_ancestry(mid, m, ancs, roots, leaves);
             });
-            this.all_msgs(function(mid, m) {
+            this.all_msgs(function(mid) {
                 graph.get_doms(mid, doms);
             });
             this.analysis = {ancs: ancs,
@@ -105,11 +108,11 @@ Graph.prototype = {
     },
 
     index_ancestry: function(mid, m, ancs, roots, leaves) {
-        Stxt.assert(mid);
-        Stxt.assert(m);
-        Stxt.assert(ancs);
-        Stxt.assert(roots);
-        Stxt.assert(leaves);
+        Assert.isString(mid);
+        Assert.instanceOf(m, Msg);
+        Assert.isObject(ancs);
+        Assert.isObject(roots);
+        Assert.isObject(leaves);
         log("indexing ancestry of {:id}", mid);
         if (mid in ancs) {
             log("already seen {:id}", mid);
@@ -127,7 +130,7 @@ Graph.prototype = {
 
         if (is_root) {
             if (mid in roots) {
-                Stxt.assert(roots[mid] === m,
+                Assert.equal(roots[mid], m,
                             "index_ancestry bad root");
             } else {
                 log("adding root {:id}", mid);
@@ -146,7 +149,7 @@ Graph.prototype = {
                 graph.index_ancestry(pid, p, ancs, roots, leaves);
                 for (var j in ancs[pid]) {
                     if (j in ancs[mid]) {
-                        Stxt.assert(ancs[mid][j] === ancs[pid][j],
+                        Assert.equal(ancs[mid][j], ancs[pid][j],
                                     "index_ancestry bad anc");
                     } else {
                         ancs[mid][j] = ancs[pid][j];
@@ -160,7 +163,7 @@ Graph.prototype = {
         var roots = this.get_roots();
         var rs = [];
         for (var i in roots) {
-            rs.push(roots[i])
+            rs.push(roots[i]);
         }
         this.sort_msgs(rs);
         // If there are multiple roots it's not a big deal; we pick the
@@ -168,8 +171,10 @@ Graph.prototype = {
         // that anyone else in the group is co-operating, since they could
         // always manufacture a group that was earlier or redundant by any
         // other measure we chose as well.
-        var n = Stxt.len(rs);
-        if (n == 0) { return null; }
+        var n = Fmt.len(rs);
+        if (n === 0) {
+            return null;
+        }
         return rs[0];
     },
 
@@ -220,9 +225,5 @@ Graph.prototype = {
 
 };
 
-Stxt.Graph = Graph;
-return Graph;
-
-
-
-});
+module.exports = Graph;
+})();

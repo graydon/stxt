@@ -17,7 +17,8 @@
 		"sjcl": "1.0.0",
 		"CBuffer": "0.1.4",
 		"chai": "1.8.1",
-		"mocha": "1.14.0"
+		"mocha": "1.14.0",
+        "when": "2.7.0"
 	},
 
 	"devDependencies": {
