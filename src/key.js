@@ -77,7 +77,7 @@ if (Config.mpdh_key_type === "c25519") {
     };
 
     Key.from_bits = function(bits) {
-        // bits is the sjcl representation of bits 
+        // bits is the sjcl representation of bits
         // (32bit number arrays).
         Assert.isArray(bits);
         var hex = sjcl.codec.hex.fromBits(bits);

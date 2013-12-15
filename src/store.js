@@ -11,14 +11,14 @@
 var Assert = require('./assert.js');
 var when = require('when');
 
-var Store = function(name, backend, driver) {
+var Store = function(name, backend, Driver) {
     Assert.isString(name);
     Assert.isString(backend);
     Assert.ok(backend in Store);
-    Assert.ok(driver);
+    Assert.ok(Driver);
     this.name = name;
     this.backend = backend;
-    this.sub = new Store[this.backend]("stxt-" + name, driver);
+    this.sub = new Store[this.backend]("stxt-" + name, Driver);
 };
 
 Store.prototype = {
@@ -41,8 +41,8 @@ Store.prototype = {
 
 // In browser, localStorage backend
 Store.WebStorage = function(prefix, driver) {
-    Stxt.assert(prefix);
-    Stxt.assert(driver);
+    Assert.isString(prefix);
+    Assert.isString(driver);
     this.prefix = prefix;
     this.driver = driver;
 };
@@ -52,39 +52,39 @@ Store.WebStorage.prototype = {
     },
     has: function(kind, key, cb) {
         var v = this.driver.getItem(this.key(kind,key)) != null;
-        Stxt.then(cb, [v]);
+        when(v, cb);
     },
     get: function(kind, key, cb) {
         var v = this.driver.getItem(this.key(kind,key));
-        Stxt.then(cb, [v]);
+        when(v, cb);
     },
     put: function(kind, key, val, cb) {
         this.driver.setItem(this.key(kind,key), val);
-        Stxt.then(cb);
+        when(null, cb);
     },
     del: function(kind, key, val, cb) {
         this.driver.removeItem(this.key(kind,key));
-        Stxt.then(cb);
+        when(null, cb);
     },
     keys: function(kind, cb, done) {
-        var re = new RegExp("^" + this.prefix + ":(\w+):(.*)");
+        var re = new RegExp("^" + this.prefix + ":(\\w+):(.*)");
         for (var i = 0; i < this.driver.length; i++) {
             var k = this.driver.key(i);
             var m = k.match(re);
-            if (cb && m && m[1] == kind) {
+            if (cb && m && m[1] === kind) {
                 cb(m[2]);
             }
         }
-        Stxt.then(done);
+        when(null, done);
     }
 };
 
 // In node, ministore backend
-Store.MiniStore = function(prefix, driver) {
-    Stxt.assert(prefix);
-    Stxt.assert(driver);
+Store.MiniStore = function(prefix, Driver) {
+    Assert.isString(prefix);
+    Assert.ok(Driver);
     this.prefix = prefix;
-    this.driver = new driver("ministore-" + prefix);
+    this.driver = new Driver("ministore-" + prefix);
     this.db = {};
 };
 Store.MiniStore.prototype = {
@@ -100,33 +100,35 @@ Store.MiniStore.prototype = {
     },
     has: function(kind, key, cb) {
         this.get_kind(kind).has(key, function(err, has) {
-            Stxt.then(cb, [has]);
+            when(has, cb);
         });
     },
     get: function(kind, key, cb) {
         this.get_kind(kind).get(key, function(err, data) {
-            Stxt.then(cb, [data]);
-        })
+            when(data, cb);
+        });
     },
     put: function(kind, key, val, cb) {
-        this.get_kind(kind).set(key, val, function(err) {
-            Stxt.then(cb);
-        })
+        this.get_kind(kind).set(key, val, function() {
+            when(null, cb);
+        });
     },
     del: function(kind, key, cb) {
-        this.get_kind(kind).remove(key, function(err) {
-            Stxt.then(cb);
-        })
+        this.get_kind(kind).remove(key, function() {
+            when(null, cb);
+        });
     },
     keys: function(kind, cb, done) {
         var k = this.get_kind(kind);
         k.length(function(length) {
             var n = 0;
             k.forEach(function(key) {
-                if (cb) cb(key);
+                if (cb) {
+                    cb(key);
+                }
                 n++;
-                if (n == length && done) {
-                    Stxt.then(done);
+                if (n === length && done) {
+                    when(null, done);
                 }
             });
         });
@@ -139,7 +141,11 @@ Store.Memory = function(prefix, driver) {
     this.driver = driver;
     this.db = {};
 };
-Store.Memory.driver = function(kind) { return {} };
+
+Store.Memory.driver = function() {
+    return {};
+};
+
 Store.Memory.prototype = {
     get_kind: function(kind) {
         var kx = null;
@@ -153,7 +159,7 @@ Store.Memory.prototype = {
     },
     has: function(kind, key, cb) {
         var kx = this.get_kind(kind);
-        Stxt.then(cb, [key in kx]);
+        when(key in kx, cb);
     },
     get: function(kind, key, cb) {
         var kx = this.get_kind(kind);
@@ -161,27 +167,26 @@ Store.Memory.prototype = {
         if (key in kx) {
             v = kx[key];
         }
-        Stxt.then(cb, [v]);
+        when(v, cb);
     },
     put: function(kind, key, val, cb) {
         var kx = this.get_kind(kind);
         kx[key] = val;
-        Stxt.then(cb);
+        when(null, cb);
     },
     del: function(kind, key, cb) {
         var kx = this.get_kind(kind);
         delete kx[key];
-        Stxt.then(cb);
+        when(null, cb);
     },
     keys: function(kind, cb, done) {
         var k = this.get_kind(kind);
         for (var j in k) {
             cb(j);
         }
-        Stxt.then(done);
+        when(null, done);
     }
 };
 
-Stxt.Store = Store;
-return Store;
-});
+module.exports = Store;
+})();

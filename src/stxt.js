@@ -21,6 +21,7 @@ var Stxt = {
 	Key: require('./key.js'),
 	Msg: require('./msg.js'),
 	State: require('./state.js'),
+	Store: require('./store.js'),
 	Tag: require('./tag.js'),
 	Trace: require('./trace.js'),
 	Uletter: require('./uletter.js'),
