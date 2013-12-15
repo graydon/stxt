@@ -205,8 +205,6 @@ module.exports = function(grunt) {
 
     // Static checking tasks
     grunt.loadNpmTasks('grunt-lint5');
-    grunt.loadNpmTasks('grunt-jslint');
-    grunt.loadNpmTasks('grunt-eslint');
     grunt.loadNpmTasks('grunt-contrib-jshint');
 
     // Testsuite task
