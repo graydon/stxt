@@ -1,4 +1,6 @@
 # grunt-zip changelog
+0.12.0 - Robustified unzipping empty directories logic. Fixes #21 for OSX
+
 0.11.0 - Fixed bug with unzipping empty directories. Fixes #21
 
 0.10.2 - Added Travis CI
