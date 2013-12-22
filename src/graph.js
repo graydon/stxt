@@ -16,7 +16,7 @@ var Trace = require('./trace.js');
 var Assert = require('./assert.js');
 var Msg = require('./msg.js');
 
-var log = Trace.mkLog("graph");
+var log = Trace.mkLog('graph');
 
 var Graph = function(msgs) {
     this.msgs = msgs;

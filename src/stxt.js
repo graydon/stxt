@@ -12,6 +12,7 @@ var Stxt = {
     curve25519: require('./curve25519.js'),
     when: require('when'),
 
+    Agent: require('./agent.js'),
     Assert: require('./assert.js'),
     Config: require('./config.js'),
     Fmt: require('./fmt.js'),

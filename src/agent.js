@@ -5,23 +5,32 @@
 // This file may not be copied, modified, or distributed
 // except according to those terms.
 
-"use strict";
-if (typeof define !== 'function') { var define = require('amdefine')(module) }
-define(["stxt/stxt", "stxt/key", "stxt/hash", "stxt/group",
-        "stxt/tag", "stxt/msg", "stxt/graph", "stxt/state"],
-function(Stxt, Key, Hash, Group, Tag, Msg, Graph, State) {
+(function() {
+'use strict';
 
+var Assert = require('./assert.js');
+var Fmt = require('./fmt.js');
+var Graph = require('./graph.js');
+var Group = require('./group.js');
+var Hash = require('./hash.js');
+var Key = require('./key.js');
+var Msg = require('./msg.js');
+var State = require('./state.js');
+var Tag = require('./tag.js');
+var Trace = require('./trace.js');
 
-var log = Stxt.mkLog("agent");
-var klog = Stxt.mkLog("keyrot");
+var log = Trace.mkLog('agent');
+var klog = Trace.mkLog('keyrot');
 
 var Agent = function(group, key, pair, peer, tag) {
-    Stxt.assert(group && (group instanceof Group));
-    Stxt.assert(key && (typeof key == "string"));
-    Stxt.assert(pair && (pair instanceof Object));
-    Stxt.assert(peer);
+
+    Assert.instanceOf(group, Group);
+    Assert.isString(key);
+    Assert.isObject(pair);
+    Assert.ok(peer);
+
     if (tag) {
-        tag instanceof Tag;
+        Assert.instancecOf(tag, Tag);
     }
 
     this.group = group;
@@ -70,7 +79,7 @@ Agent.prototype = {
         var m = env.decrypt(this.key);
         this.decrypted[eid] = true;
         var mid = m.id;
-        Stxt.assert(! (mid in this.msgs));
+        Assert.property(this.msgs, mid);
         this.msgs[mid] = m;
 
         // FIXME: incrementalize graph and state-building.
@@ -96,7 +105,7 @@ Agent.prototype = {
 
     get_msg: function(mid) {
         this.decrypt_all();
-        Stxt.assert(mid in this.msgs);
+        Assert.property(this.msgs, mid);
         return this.msgs[mid];
     },
 
@@ -112,21 +121,21 @@ Agent.prototype = {
         }
     },
 
-    get_msgs_by: function(field,val) {
-        Stxt.assert(typeof field == "string");
-        Stxt.assert(typeof val == "string");
+    get_msgs_by: function(field, val) {
+        Assert.isString(field);
+        Assert.isString(val);
         var s = [];
         this.all_msgs_in_sorted_order(function(mid, m) {
-            Stxt.assert(mid);
-            Stxt.assert(m);
-            if (m[field] == val) {
+            Assert.ok(mid);
+            Assert.ok(m);
+            if (m[field] === val) {
                 s.push(m);
             }
         });
         return s;
     },
 
-    get_graph: function(m) {
+    get_graph: function() {
         if (! this.graph) {
             this.graph = new Graph(this.msgs);
             this.graph.get_analysis();
@@ -141,7 +150,7 @@ Agent.prototype = {
             // We're in group-founding position.
             return exchs;
         }
-        var party_size = Stxt.len(this.get_members());
+        var party_size = Fmt.len(this.get_members());
         this.all_msgs_in_sorted_order(function(mid, m) {
             for (var i in m.keys) {
                 var k = m.keys[i];
@@ -166,7 +175,7 @@ Agent.prototype = {
         var n_other = 0;
 
         for (var i in exchs) {
-            if (i == from) {
+            if (i === from) {
                 seeded_us = true;
             }
             var e = exchs[i];
@@ -181,7 +190,7 @@ Agent.prototype = {
                 if (e.is_finished()) {
                     n_finished++;
                 } else if (e.has_user(from)) {
-                    n_includes_us++
+                    n_includes_us++;
                 } else {
                     n_other++;
                 }
@@ -190,8 +199,7 @@ Agent.prototype = {
         }
         var nk = {};
         for (i in new_exchs) {
-            e = new_exchs[i];
-            nk[i] = e.pub;
+            nk[i] = new_exchs[i].pub;
         }
 
         klog("{} in {:id} found {:len} live exchs",
@@ -229,9 +237,10 @@ Agent.prototype = {
             var e = exchs[i];
             if (e.is_finished() &&
                 ! e.has_user(from)) {
-                klog("{} in {:id} found finished exch w/o us, deriving new key",
+                klog("{} in {:id} found finished exch w/o us, " +
+                     "deriving new key",
                      this.from(), this.group.id);
-                return e.derive_final(this.next_pair.sec)
+                return e.derive_final(this.next_pair.sec);
             }
         }
         klog("{} in {:id} not ready to derive new key",
@@ -241,7 +250,7 @@ Agent.prototype = {
 
     set_next: function(next_id) {
         if (this.next) {
-            Stxt.assert(this.next == next_id);
+            Assert.equal(this.next, next_id);
         } else {
             this.next = next_id;
         }
@@ -249,8 +258,8 @@ Agent.prototype = {
 
     maybe_derive_next_agent: function(cb) {
 
-    var agent = this;
-    var peer = agent.peer;
+        var agent = this;
+        var peer = agent.peer;
 
         // This will figure out if it's time to rotate, and if so
         // derive a new key, make a new group, emit a root
@@ -258,73 +267,78 @@ Agent.prototype = {
         // null if it's not time to rotate.
         var next_key = this.maybe_derive_next_key();
 
-    if (!agent.next) {
-        if (next_key) {
-        var gid = Hash.hash(next_key);
-        this.set_next(gid);
+        if (!agent.next) {
+            if (next_key) {
+                var gid = Hash.hash(next_key);
+                this.set_next(gid);
+            }
         }
-    }
 
-    if (agent.next) {
+        if (agent.next) {
             log("already DONE group {:id}, next group {:id}",
-        agent.group.id, agent.next);
-        agent.peer.has_agent(agent.next, function(has) {
-        if (has) {
-            agent.peer.get_agent(agent.next, cb);
+                agent.group.id, agent.next);
+            agent.peer.has_agent(agent.next, function(has) {
+                if (has) {
+                    agent.peer.get_agent(agent.next, cb);
+                } else {
+                    var next_agent =
+                        peer.new_agent_with_new_group(gid, next_key);
+                    log("DONE group {:id}, derived next group {:id}",
+                        agent.group.id, next_agent.group.id);
+                    agent.set_next(next_agent.group.id);
+                    next_agent.add_epoch(agent.get_graph().leaf_ids(),
+                                         agent.get_state().snap());
+                    agent.save(function() {
+                        next_agent.save(function() {
+                            if (cb) {
+                                cb(next_agent);
+                            }
+                        });
+                    });
+                }
+            });
         } else {
-            var next_agent =
-            peer.new_agent_with_new_group(gid, next_key);
-            log("DONE group {:id}, derived next group {:id}",
-            agent.group.id, next_agent.group.id);
-            agent.set_next(next_agent.group.id);
-            next_agent.add_epoch(agent.get_graph().leaf_ids(),
-                     agent.get_state().snap());
-            agent.save(function() {
-            next_agent.save(function() {
-                if (cb) cb(next_agent)
-            });
-            });
+            if (cb) {
+                cb(null);
+            }
         }
-        });
-    } else {
-        if (cb) {
-        cb(null);
-        }
-    }
     },
 
     member_has_committed: function(member) {
-    Stxt.assert(member instanceof Tag);
-    var mem = member.toString();
+        Assert.instanceOf(member, Tag);
+        var mem = member.toString();
         this.decrypt_all();
         for (var i in this.msgs) {
             var m = this.msgs[i];
-        if (m.from.toString() == mem) {
-        return true;
+            if (m.from.toString() === mem) {
+                return true;
+            }
         }
-    }
-    return false;
+        return false;
     },
 
     members_have_committed: function() {
         var members = this.get_members();
         var committed_members = {};
-        var n = Stxt.len(members);
+        var n = Fmt.len(members);
+        var i;
 
-        for (var i in members) {
+        for (i in members) {
             klog("group {:id} member {}", this.group.id, i);
         }
 
-        if (n < 1) { return true; }
+        if (n < 1) {
+            return true;
+        }
 
         this.decrypt_all();
 
-        for (var i in this.msgs) {
+        for (i in this.msgs) {
             if (n < 1) {
                 break;
             }
             var m = this.msgs[i];
-            var f = m.from.toString()
+            var f = m.from.toString();
             klog("group {:id} msg from {}",
                  this.group.id, m.from);
             if (f in members &&
@@ -337,8 +351,8 @@ Agent.prototype = {
         klog("group {:id} {:len}/{:len} " +
              "have committed => group is {}committed",
              this.group.id, committed_members, members,
-             (n == 0 ? "" : "not "));
-        return n==0;
+             (n === 0 ? "" : "not "));
+        return n === 0;
     },
 
     get_state: function() {
@@ -346,7 +360,7 @@ Agent.prototype = {
         function for_each_tkv(ob, f) {
             for (var t in ob) {
                 for (var k in ob[t]) {
-                    f(t,k,ob[t][k])
+                    f(t,k,ob[t][k]);
                 }
             }
         }
@@ -377,7 +391,7 @@ Agent.prototype = {
             // the snapshot of previous state multimap vals.
             if ('body' in root && 'state' in root.body) {
                 for_each_tkv(root.body.state, function(t,k,vs) {
-                    Stxt.assert(vs instanceof Array);
+                    Assert.instanceOf(vs, Array);
                     vs.forEach(function(v) {
                         state.add_tkv(t,k,v);
                     });
@@ -426,15 +440,14 @@ Agent.prototype = {
     },
 
     add_epoch: function(parents, state) {
-        Stxt.assert(Stxt.len(this.group.envelopes) == 0);
-        var body = {state: state};
+        Assert.equal(Fmt.len(this.group.envelopes), 0);
         log("NEW EPOCH for group {:id}, from {}",
             this.group.id, this.from());
         this.add_msg("epoch", {state: state}, parents);
     },
 
     add_epoch_if_missing: function() {
-        if (Stxt.len(this.group.envelopes) == 0) {
+        if (Fmt.len(this.group.envelopes) === 0) {
             var members = {};
             members[this.from().nick] = [this.from().guid];
             this.add_epoch([], {member: members});
@@ -450,10 +463,10 @@ Agent.prototype = {
     },
 
     chg_state: function(t,k,v1,v2) {
-        Stxt.assert(typeof t == "string")
-        Stxt.assert(typeof k == "string")
-        Stxt.assert(typeof v1 == "string")
-        Stxt.assert(typeof v2 == "string")
+        Assert.isString(t);
+        Assert.isString(k);
+        Assert.isString(v1);
+        Assert.isString(v2);
         var ty = {};
         ty[k] = [v1,v2];
         var body = {};
@@ -473,10 +486,14 @@ Agent.prototype = {
     del_ref: function(name, id) { this.del_state("ref", name, id); },
     chg_ref: function(name, a, b) { this.chg_state("ref", name, a, b); },
 
-    add_member: function(tag) { this.add_state("member", tag.nick, tag.guid); },
-    del_member: function(tag) { this.del_state("member", tag.nick, tag.guid); },
+    add_member: function(tag) {
+        this.add_state("member", tag.nick, tag.guid);
+    },
+    del_member: function(tag) {
+        this.del_state("member", tag.nick, tag.guid);
+    },
     chg_member: function(a,b) {
-        if (a.nick == b.nick) {
+        if (a.nick === b.nick) {
             this.chg_state("member", a.nick, a.guid, b.guid);
         } else {
             this.del_state("member", a.nick, a.guid);
@@ -510,19 +527,20 @@ Agent.prototype = {
         var nicks = this.get_state().get_keys("member");
         var members = {};
         for (var nick in nicks) {
-            nicks[nick].forEach(function(guid) {
+            for (var i in nicks[nick]) {
+                var guid = nicks[nick][i];
                 var tag = new Tag("u", nick, guid);
                 members[tag.toString()] = tag;
-            });
+            }
         }
         return members;
     },
 
     has_member: function(tag) {
-        Stxt.assert(tag instanceof Tag);
+        Assert.instanceOf(tag, Tag);
         var nicks = this.get_state().get_keys("member");
         return tag.nick in nicks &&
-            nicks[tag.nick].indexOf(tag.guid) != -1;
+            nicks[tag.nick].indexOf(tag.guid) !== -1;
     },
 
     add_ping: function() {
@@ -530,6 +548,5 @@ Agent.prototype = {
     }
 };
 
-Stxt.Agent = Agent;
-return Agent;
-});
+module.exports = Agent;
+})();
