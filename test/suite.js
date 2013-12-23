@@ -301,6 +301,31 @@ describe('Agent', function() {
         })
         .done(null, done);
     });
+
+    it("can link groups together", function(done) {
+        new_mem_peer_root_agent().then(function(root_agent) {
+            var peer = root_agent.peer;
+            log("creating rererenced groups");
+            var agent_a = peer.new_agent_with_new_group();
+            var agent_b = peer.new_agent_with_new_group();
+            var agent_c = peer.new_agent_with_new_group();
+            add_messages_and_sort(agent_a);
+            add_messages_and_sort(agent_b);
+            root_agent.add_link_ref(agent_a.group.id);
+            root_agent.add_link_ref(agent_b.group.id);
+            root_agent.chg_link_ref(agent_b.group.id,
+                                    agent_c.group.id);
+            log("got link-refs:");
+            var refs = root_agent.get_link_refs();
+            refs.forEach(function(r) {
+                log("    {:id}", r);
+            });
+            Assert.deepEqual(refs,
+                             [agent_a.group.id,
+                              agent_c.group.id]);
+            done();
+        }).done(null, done);
+    });
 });
 
 

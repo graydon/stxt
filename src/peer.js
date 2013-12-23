@@ -119,7 +119,7 @@ Peer.prototype = {
         if (key) {
             Assert.equal(gid, Hash.hash(key));
         } else {
-            Assert.isNull(!gid);
+            Assert.notOk(gid);
             key = Hash.random();
             gid = Hash.hash(key);
         }
