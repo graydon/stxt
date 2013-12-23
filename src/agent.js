@@ -55,9 +55,10 @@ Agent.prototype = {
 
     save: function(cb) {
         var agent = this;
-        agent.peer.put_group(agent.group, function() {
-            agent.peer.put_agent(agent, cb);
-        });
+        agent.peer.put_group(agent.group)
+            .then(function() {
+                agent.peer.put_agent(agent, cb);
+            });
     },
 
     from: function() {
@@ -79,7 +80,7 @@ Agent.prototype = {
         var m = env.decrypt(this.key);
         this.decrypted[eid] = true;
         var mid = m.id;
-        Assert.property(this.msgs, mid);
+        Assert.notProperty(this.msgs, mid);
         this.msgs[mid] = m;
 
         // FIXME: incrementalize graph and state-building.

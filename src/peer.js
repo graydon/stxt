@@ -9,6 +9,7 @@
 'use strict';
 
 var sjcl = require('sjcl');
+var when = require('when');
 
 var Agent = require('./agent.js');
 var Assert = require('./assert.js');
@@ -36,46 +37,60 @@ var Peer = function(store, user, pw, salt, root_group_id) {
 // Agent and Group objects should not be stored by JSON.stringify'ing them
 // directly.  They are more subtle than that.
 
-Peer.attach = function(store, user, pw, cb) {
+Peer.attach = function(store, user, pw) {
     Assert.ok(store);
     Assert.isString(user);
-    store.has("cfg", "root-group", function(has_root) {
-        if (has_root) {
-            log("reloading root group id");
-            store.get("cfg", "root-group", function(gid) {
-                store.get("cfg", "agent-salt", function(salt) {
+    var peer_d = when.defer();
+
+    store.has_p("cfg", "root-group")
+        .then(function(has_root) {
+            if (has_root) {
+                log("reloading root group id");
+                var gid_p = store.get_p("cfg", "root-group");
+                var salt_p = store.get_p("cfg", "agent-salt");
+                when.join(gid_p, salt_p).spread(function(gid, salt) {
                     var peer = new Peer(store, user, pw, salt, gid);
-                    peer.get_agent(gid, function() {
-                        cb(peer);
-                    });
+                    peer_d.resolve(peer.get_agent(gid));
+                }).otherwise(function(err) {
+                    peer_d.reject(err);
                 });
-            });
-        } else {
-            log("initializing root group");
-            var salt = Hash.random();
-            var key = Hash.random();
-            var gid = Hash.hash(key);
-            var peer = new Peer(store, user, pw, salt, gid);
-            var group = new Group(gid, peer);
-            var pair = Key.genpair();
-            var agent = new Agent(group, key, pair, peer);
+            } else {
+                log("initializing root group");
+                var salt = Hash.random();
+                var key = Hash.random();
+                var gid = Hash.hash(key);
+                var peer = new Peer(store, user, pw, salt, gid);
+                var group = new Group(gid, peer);
+                var pair = Key.genpair();
+                var agent = new Agent(group, key, pair, peer);
 
-            agent.add_epoch_if_missing();
+                agent.add_epoch_if_missing();
 
-            log("storing root group {:id}", group.id);
-            peer.put_group(group, function() {
-                log("storing root agent");
-                peer.put_agent(agent, function() {
+                log("storing root group {:id}", group.id);
+                peer.put_group(group)
+                .then(function() {
+                    log("storing root agent");
+                    return peer.put_agent(agent);
+                })
+                .then(function() {
+                    log("storing agent salt");
+                    return store.put_p("cfg", "agent-salt", salt);
+                })
+                .then(function() {
                     log("storing root group id");
-                    store.put("cfg", "agent-salt", salt, function() {
-                        store.put("cfg", "root-group", group.id, function() {
-                            cb(peer);
-                        });
-                    });
+                    return store.put_p("cfg", "root-group", group.id);
+                })
+                .then(function() {
+                    log("made peer");
+                    peer_d.resolve(peer);
+                }).otherwise(function(err) {
+                    peer_d.reject(err);
                 });
-            });
-        }
-    });
+            }
+        }).otherwise(function(err) {
+            peer_d.reject(err);
+        });
+    return peer_d.promise;
 };
 
 Peer.prototype = {
@@ -133,14 +148,14 @@ Peer.prototype = {
             });
         }
     },
-    put_group: function(group, cb) {
+    put_group: function(group) {
         if (group.id in this.groups) {
             Assert.equal(this.groups[group.id], group);
         } else {
             this.groups[group.id] = group;
         }
         var envs = group.envelopes;
-        this.store.put("group", group.id, JSON.stringify(envs), cb);
+        return this.store.put_p("group", group.id, JSON.stringify(envs));
     },
 
     del_group_and_agent: function(gid, cb) {

@@ -5,14 +5,11 @@
 /* global it */
 /* jshint maxlen: 100 */
 
+var when = require('when');
+
 var Stxt = require('../src/stxt.js');
 
 var Assert = Stxt.Assert;
-
-var Hash = Stxt.Hash;
-var Tag = Stxt.Tag;
-var Fmt = Stxt.Fmt;
-
 describe('Basic', function(){
     it('testsuite functions', function(){
         Assert.ok(Stxt.return_true());
@@ -20,6 +17,7 @@ describe('Basic', function(){
 });
 
 describe('Fmt', function() {
+    var Fmt = Stxt.Fmt;
     it('abbreviates long lines', function() {
         Assert.equal(Fmt.abbrev('hello chicken delicious'),
                      'hello ch');
@@ -49,6 +47,7 @@ describe('Fmt', function() {
 });
 
 describe('Hash (sha256)', function(){
+    var Hash = Stxt.Hash;
     it('passes 3 sha256 test vectors', function(){
         var sha256_tvecs = [
             // Nb: the test input is JSON.stringify(input), so 'a' is actually '"a"'.
@@ -75,6 +74,7 @@ describe('Hash (sha256)', function(){
 });
 
 describe('Tag', function(){
+    var Tag = Stxt.Tag;
     var bob = Tag.new_user('bob');
     it('generates tags with correct nick and kind', function(){
         Assert.equal(bob.kind, 'u');
@@ -86,6 +86,10 @@ describe('Tag', function(){
 });
 
 describe('Curve25519', function() {
+
+    this.timeout(500);
+
+    var c255 = Stxt.curve25519;
     it('passes the first 10 donna test vectors', function() {
         var donna_tvecs = [
             ["0300000000000000000000000000000000000000000000000000000000000000",
@@ -120,7 +124,6 @@ describe('Curve25519', function() {
              "fd52d04fe48fe65107680ee175cbfab3fb526e7412bc95806a44c6f88676f877"],
         ];
         donna_tvecs.forEach(function(triple) {
-            var c255 = Stxt.curve25519;
             var r = c255.crypto_scalarmult(c255.from_hex(triple[0]),
                                            c255.from_hex(triple[1]));
             Assert.equal(c255.to_hex(r), triple[2]);
@@ -131,105 +134,123 @@ describe('Curve25519', function() {
 var Store = Stxt.Store;
 describe('Store', function() {
 
+    function new_db_with_two_rows() {
+        var store = new Store("mem", "Memory", Store.Memory.driver);
+        var store_d = when.defer();
+        store.put_p('group', 'foo', 'bar')
+            .then(function() {
+                return store.put_p('group', 'baz', 'quux');
+            })
+            .then(function() {
+                store_d.resolve(store);
+            });
+        return store_d.promise;
+    }
+
     describe('Memory driver', function() {
 
         it("supports put", function(done) {
-            var store = new Store("mem", "Memory", Store.Memory.driver);
-            store.put_p('group', 'foo', 'bar')
+            new_db_with_two_rows()
                 .then(function() {
-                    return store.put_p('group', 'baz', 'quux');
-                }).then(function() {
                     done();
                 })
                 .done(null, done);
         });
 
         it("supports put => has/!has", function(done) {
-            var store = new Store("mem", "Memory", Store.Memory.driver);
-            store.put_p('group', 'foo', 'bar')
-                .then(function() {
-                    return store.put_p('group', 'baz', 'quux');
-                })
-                .then(function() {
-                    return store.has_p('group', 'foo');
-                })
-                .then(function(v) {
-                    Assert.ok(v);
-                    return store.has_p('group', 'baz');
-                })
-                .then(function(v) {
-                    Assert.ok(v);
-                    return store.has_p('group', 'nope');
-                })
-                .then(function(v) {
-                    Assert.notOk(v);
-                    done();
+            new_db_with_two_rows()
+                .then(function(store) {
+                    return store.has_p('group', 'foo')
+                        .then(function(v) {
+                            Assert.ok(v);
+                            return store.has_p('group', 'baz');
+                        })
+                        .then(function(v) {
+                            Assert.ok(v);
+                            return store.has_p('group', 'nope');
+                        })
+                        .then(function(v) {
+                            Assert.notOk(v);
+                            done();
+                        });
                 })
                 .done(null, done);
         });
 
         it("supports put => get", function(done) {
-            var store = new Store("mem", "Memory", Store.Memory.driver);
-            store.put_p('group', 'foo', 'bar')
-                .then(function() {
-                    return store.put_p('group', 'baz', 'quux');
-                })
-                .then(function() {
-                    return store.get_p('group', 'foo');
-                })
-                .then(function(v) {
-                    Assert.equal(v, 'bar');
-                    return store.get_p('group', 'baz');
-                })
-                .then(function(v) {
-                    Assert.equal(v, 'quux');
-                    done();
+            new_db_with_two_rows()
+                .then(function(store) {
+                    return store.get_p('group', 'foo')
+                        .then(function(v) {
+                            Assert.equal(v, 'bar');
+                            return store.get_p('group', 'baz');
+                        })
+                        .then(function(v) {
+                            Assert.equal(v, 'quux');
+                            done();
+                        });
                 })
                 .done(null, done);
         });
 
         it("supports put => keys", function(done) {
-            var store = new Store("mem", "Memory", Store.Memory.driver);
-            store.put_p('group', 'foo', 'bar')
-                .then(function() {
-                    return store.put_p('group', 'baz', 'quux');
-                })
-                .then(function() {
-                    return store.keys_p('group');
-                })
-                .then(function(ks) {
-                    Assert.isArray(ks);
-                    ks.sort();
-                    Assert.deepEqual(ks, ['baz', 'foo']);
-                    done();
+            new_db_with_two_rows()
+                .then(function(store) {
+                    return store.keys_p('group')
+                        .then(function(ks) {
+                            Assert.isArray(ks);
+                            ks.sort();
+                            Assert.deepEqual(ks, ['baz', 'foo']);
+                            done();
+                        });
                 })
                 .done(null, done);
         });
 
         it("supports put => del => !has", function(done) {
-            var store = new Store("mem", "Memory", Store.Memory.driver);
-            store.put_p('group', 'foo', 'bar')
-                .then(function() {
-                    return store.put_p('group', 'baz', 'quux');
-                })
-                .then(function() {
-                    return store.has_p('group', 'foo');
-                })
-                .then(function(v) {
-                    Assert.ok(v);
-                    return store.del_p('group', 'foo');
-                })
-                .then(function() {
-                    return store.has_p('group', 'foo');
-                })
-                .then(function(v) {
-                    Assert.notOk(v);
-                    done();
+            new_db_with_two_rows()
+                .then(function(store) {
+                    return store.has_p('group', 'foo')
+                        .then(function(v) {
+                            Assert.ok(v);
+                            return store.del_p('group', 'foo');
+                        })
+                        .then(function() {
+                            return store.has_p('group', 'foo');
+                        })
+                        .then(function(v) {
+                            Assert.notOk(v);
+                            done();
+                        });
                 })
                 .done(null, done);
         });
-
     });
 });
+
+function new_named_mem_peer(name) {
+    var store = new Store("mem", "Memory",
+                          Store.Memory.driver);
+    return Peer.attach(store, name, "testpass");
+}
+
+function new_mem_peer() {
+    return new_named_mem_peer("testuser");
+}
+
+var Peer = Stxt.Peer;
+describe('Peer', function() {
+
+    this.timeout(5000);
+
+    it("can attach", function(done) {
+        new_mem_peer().then(function(peer) {
+            Assert.instanceOf(peer, Peer);
+            done();
+        })
+        .done(null, done);
+    });
+});
+
 
 })();

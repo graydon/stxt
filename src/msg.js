@@ -46,8 +46,7 @@ var Msg = function(group, parents, from, kind, body, keys, time) {
 Msg.prototype = {
     // symkey should be a previously-established sjcl bitarray
     encrypt: function(symkey) {
-        Assert.ok(symkey);
-        Assert.isArray(symkey);
+        Assert.isString(symkey);
         Assert.property(Config, 'ae_cipher_type');
         Assert.property(Config, 'ae_cipher_len');
         Assert.property(Config, 'ae_cipher_mode');
@@ -88,7 +87,7 @@ Msg.Envelope.prototype = {
     decrypt: function(symkey) {
         log("decrypting envelope: id={:id}", this.id);
         var v = JSON.parse(sjcl.decrypt(symkey,JSON.stringify(this.ct)));
-        Assert.equals(v.group, this.group);
+        Assert.equal(v.group, this.group);
         var from = new Tag(v.from.kind,
                            v.from.nick,
                            v.from.guid);
