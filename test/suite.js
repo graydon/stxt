@@ -97,5 +97,35 @@ describe('Curve25519', function() {
     });
 });
 
+var Store = Stxt.Store;
+describe('store', function() {
+
+    describe('mem driver', function() {
+
+        var store = new Store("mem", "Memory", Store.Memory.driver);
+
+        it("supports put", function(done) {
+            store.put_p('group', 'foo', 'bar')
+                .then(function() {
+                    return store.put_p('group', 'baz', 'quux');
+                })
+                .then(done);
+        });
+
+        it("supports get from put", function(done) {
+            store.get_p('group', 'foo')
+                .then(function(v) {
+                    Assert.equal(v, 'bar');
+                    return store.get_p('group', 'baz');
+                })
+                .then(function(v) {
+                    Assert.equal(v, 'quux');
+                    done();
+                });
+        });
+
+
+    });
+});
 
 })();

@@ -230,9 +230,9 @@ module.exports = function(grunt) {
         "zip"
     ]);
 
-    grunt.registerTask('unit', [ 'mochacov:unit' ]);
-    grunt.registerTask('test', [ 'jshint', 'mochacov:unit',
-                                 'mochacov:coverage']);
+    grunt.registerTask('test', [ 'browserify', 'jshint', 'mochacov:unit' ]);
+    grunt.registerTask('testcov', [ 'browserify', 'jshint', 'mochacov:unit',
+                                    'mochacov:coverage']);
 
     grunt.registerTask('travis', ['jshint', 'mochacov:unit',
                                   'mochacov:coverage', 'mochacov:coveralls']);

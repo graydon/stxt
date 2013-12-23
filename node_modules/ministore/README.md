@@ -1,0 +1,72 @@
+ministore
+=========
+
+Installation:
+-------------
+    npm install ministore
+
+Usage:
+------
+```javascript
+
+// create our db
+var Store = require('ministore')('../path/to/db/dir')
+
+// create some collections
+var users = Store('users')
+var sessions = Store('sessions', { polling: 3000 }) // will save every 3 secs
+
+// sync way (no callback)
+users.set('john', 'doe')
+users.get('john') // 'doe'
+
+// async way
+users.set('mary', 'loo', function(err) {
+  users.get('mary', function(err, data) {
+    console.log(data) // 'loo'
+  })
+})
+
+```
+
+Options:
+--------
+
+### Store('somestore', options)
+
+### polling: true (OR) false (OR) ms [default: false]
+Save at intervals
+
+### watch: true (OR) false [default: false]
+Watch store for changes (if there are many open)
+
+API methods:
+------------
+
+All API methods accept a callback as the last argument, making the process async
+
+### get(key)
+### set(key, val)
+### remove(key)
+### push(key, val) / unshift(key, val)
+### shift(key) / pop(key)
+### has(key)
+### all()
+### clear()
+### list()
+### length()
+### forEach(fn)
+### save()
+### eval(key)
+### evalshift(key)
+### evalpop(key)
+
+Example: 
+
+```javascript
+
+var math = require('ministore')('mdb')('math')
+math.set('add', function (a, b) { return a + b })
+math.eval('add')(4, 5) // 9
+
+```

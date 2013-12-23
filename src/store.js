@@ -10,6 +10,7 @@
 
 var Assert = require('./assert.js');
 var when = require('when');
+var nodefn = require('when/node/function');
 
 var Store = function(name, backend, Driver) {
     Assert.isString(name);
@@ -22,24 +23,43 @@ var Store = function(name, backend, Driver) {
 };
 
 Store.prototype = {
-    has: function(kind, key) {
+
+    // Direct promise interfaces
+    has_p: function(kind, key) {
         return this.sub.has(kind, key);
     },
-    get: function(kind, key) {
+    get_p: function(kind, key) {
         return this.sub.get(kind, key);
     },
-    put: function(kind, key, val) {
+    put_p: function(kind, key, val) {
         return this.sub.put(kind, key, val);
     },
-    del: function(kind, key, val) {
-        return this.sub.del(kind, key, val);
+    del_p: function(kind, key) {
+        return this.sub.del(kind, key);
     },
-    keys: function(kind) {
+    keys_p: function(kind) {
         return this.sub.keys(kind);
+    },
+
+    // Manual callback based (to be phased out)
+    has: function(kind, key, cb) {
+        this.has_p(kind, key).then(cb);
+    },
+    get: function(kind, key, cb) {
+        this.get_p(kind, key).then(cb);
+    },
+    put: function(kind, key, val, cb) {
+        this.put_p(kind, key, val).then(cb);
+    },
+    del: function(kind, key, cb) {
+        this.put_p(kind, key).then(cb);
+    },
+    keys: function(kind, cb) {
+        this.put_p(kind).then(cb);
     }
 };
 
-// In browser, localStorage backend
+// In browser, localStorage backend (synchronous)
 Store.WebStorage = function(prefix, driver) {
     Assert.isString(prefix);
     Assert.isString(driver);
@@ -50,36 +70,37 @@ Store.WebStorage.prototype = {
     key: function(kind, key) {
         return this.prefix + ":" + kind + ":" + key;
     },
-    has: function(kind, key, cb) {
+    has: function(kind, key) {
         var v = this.driver.getItem(this.key(kind,key)) != null;
-        when(v, cb);
+        return when.resolve(v);
     },
-    get: function(kind, key, cb) {
+    get: function(kind, key) {
         var v = this.driver.getItem(this.key(kind,key));
-        when(v, cb);
+        return when.resolve(v);
     },
-    put: function(kind, key, val, cb) {
+    put: function(kind, key, val) {
         this.driver.setItem(this.key(kind,key), val);
-        when(null, cb);
+        return when.resolve(null);
     },
-    del: function(kind, key, val, cb) {
+    del: function(kind, key) {
         this.driver.removeItem(this.key(kind,key));
-        when(null, cb);
+        return when.resolve(null);
     },
-    keys: function(kind, cb, done) {
+    keys: function(kind) {
         var re = new RegExp("^" + this.prefix + ":(\\w+):(.*)");
+        var elts = [];
         for (var i = 0; i < this.driver.length; i++) {
             var k = this.driver.key(i);
             var m = k.match(re);
-            if (cb && m && m[1] === kind) {
-                cb(m[2]);
+            if (m[1] === kind) {
+                elts.push(m[2]);
             }
         }
-        when(null, done);
+        return when.resolve(elts);
     }
 };
 
-// In node, ministore backend
+// In node, ministore backend (asynchronous)
 Store.MiniStore = function(prefix, Driver) {
     Assert.isString(prefix);
     Assert.ok(Driver);
@@ -98,44 +119,24 @@ Store.MiniStore.prototype = {
         }
         return kx;
     },
-    has: function(kind, key, cb) {
-        this.get_kind(kind).has(key, function(err, has) {
-            when(has, cb);
-        });
+    has: function(kind, key) {
+        return nodefn.call(this.get_kind(kind).has, key);
     },
-    get: function(kind, key, cb) {
-        this.get_kind(kind).get(key, function(err, data) {
-            when(data, cb);
-        });
+    get: function(kind, key) {
+        return nodefn.call(this.get_kind(kind).get, key);
     },
-    put: function(kind, key, val, cb) {
-        this.get_kind(kind).set(key, val, function() {
-            when(null, cb);
-        });
+    put: function(kind, key, val) {
+        return nodefn.call(this.get_kind(kind).set, key, val);
     },
-    del: function(kind, key, cb) {
-        this.get_kind(kind).remove(key, function() {
-            when(null, cb);
-        });
+    del: function(kind, key) {
+        return nodefn.call(this.get_kind(kind).remove, key);
     },
-    keys: function(kind, cb, done) {
-        var k = this.get_kind(kind);
-        k.length(function(length) {
-            var n = 0;
-            k.forEach(function(key) {
-                if (cb) {
-                    cb(key);
-                }
-                n++;
-                if (n === length && done) {
-                    when(null, done);
-                }
-            });
-        });
-    }
+    keys: function(kind) {
+        return nodefn.call(this.get_kind(kind).list);
+    },
 };
 
-// In-memory backend
+// In-memory backend (synchronous)
 Store.Memory = function(prefix, driver) {
     this.prefix = prefix;
     this.driver = driver;
@@ -157,34 +158,31 @@ Store.Memory.prototype = {
         }
         return kx;
     },
-    has: function(kind, key, cb) {
+    has: function(kind, key) {
         var kx = this.get_kind(kind);
-        when(key in kx, cb);
+        return when.resolve(key in kx);
     },
-    get: function(kind, key, cb) {
+    get: function(kind, key) {
         var kx = this.get_kind(kind);
         var v = null;
         if (key in kx) {
             v = kx[key];
         }
-        when(v, cb);
+        return when.resolve(v);
     },
-    put: function(kind, key, val, cb) {
+    put: function(kind, key, val) {
         var kx = this.get_kind(kind);
         kx[key] = val;
-        when(null, cb);
+        return when.resolve(null);
     },
-    del: function(kind, key, cb) {
+    del: function(kind, key) {
         var kx = this.get_kind(kind);
         delete kx[key];
-        when(null, cb);
+        return when.resolve(null);
     },
-    keys: function(kind, cb, done) {
+    keys: function(kind) {
         var k = this.get_kind(kind);
-        for (var j in k) {
-            cb(j);
-        }
-        when(null, done);
+        return when.resolve(Object.keys(k));
     }
 };
 
