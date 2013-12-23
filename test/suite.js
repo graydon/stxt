@@ -11,10 +11,40 @@ var Assert = Stxt.Assert;
 
 var Hash = Stxt.Hash;
 var Tag = Stxt.Tag;
+var Fmt = Stxt.Fmt;
 
 describe('Basic', function(){
     it('testsuite functions', function(){
         Assert.ok(Stxt.return_true());
+    });
+});
+
+describe('Fmt', function() {
+    it('abbreviates long lines', function() {
+        Assert.equal(Fmt.abbrev('hello chicken delicious'),
+                     'hello ch');
+    });
+    it('leaves short lines alone', function() {
+        Assert.equal(Fmt.abbrev('hello'), 'hello');
+    });
+    it('measures length of arrays', function() {
+        Assert.equal(Fmt.len([1,2,3]), 3);
+    });
+    it('measures length of objects', function() {
+        Assert.equal(Fmt.len({a:10, b:11, c:12}), 3);
+    });
+    it('0-pads strings', function() {
+        Assert.equal(Fmt.pad('noodle', 10), 'noodle\0\0\0\0');
+    });
+    it('avoids padding when unneeded', function() {
+        Assert.equal(Fmt.pad('noodle',6), 'noodle');
+        Assert.equal(Fmt.pad('noodle',4), 'noodle');
+    });
+    it('strips padding when present', function() {
+        Assert.equal(Fmt.unpad(Fmt.pad('noodle', 10)), 'noodle');
+    });
+    it('strips padding when not present', function() {
+        Assert.equal(Fmt.unpad(Fmt.pad('noodle', 4)), 'noodle');
     });
 });
 

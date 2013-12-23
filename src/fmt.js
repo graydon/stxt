@@ -42,7 +42,7 @@ function pad(s,len) {
 
 function unpad(s) {
     Assert.typeOf(s, 'string');
-    return s.replace(/\0*$/);
+    return s.replace(/\0*$/,'');
 }
 
 module.exports = {
