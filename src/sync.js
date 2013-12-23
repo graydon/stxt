@@ -32,12 +32,17 @@
 //      the peer has agency in. But if not, at least the carried
 //      envelopes have been transferred.
 
+(function() {
 "use strict";
-if (typeof define !== 'function') { var define = require('amdefine')(module) }
-define(["sjcl", "stxt/stxt", "stxt/hash", "stxt/msg", "stxt/enc"],
-function(sjcl, Stxt, Hash, Msg, Enc) {
 
-var log = Stxt.mkLog("sync");
+var sjcl = require('sjcl');
+
+var Assert = require('./assert.js');
+var Hash = require('./hash.js');
+var Msg = require('./msg.js');
+var Trace = require('./trace.js');
+
+var log = Trace.mkLog("sync");
 
 var Sync = function(agent) {
     log("new: agent group={:id}", agent.group.id);
@@ -48,10 +53,10 @@ var Sync = function(agent) {
 Sync.prototype = {
     nonce: function() {
         var secbits = sjcl.random.randomWords(8);
-        return Enc.bin2str(secbits);
+        return sjcl.codec.hex.fromBits(secbits);
     },
     form_payload: function(obj, sync_group) {
-        Stxt.assert(this instanceof Sync);
+        Assert.instanceOf(this, Sync);
         return {
             agent_group: this.agent.group.id,
             sync_group: sync_group,
@@ -61,13 +66,13 @@ Sync.prototype = {
         };
     },
     verify_payload: function(payload) {
-        Stxt.assert(this instanceof Sync);
+        Assert.instanceOf(this, Sync);
         if (payload.nonce in this.nonces) {
             log("nonce reuse, rejecting");
             return false;
         }
-        if (payload.mac != Hash.hmac(this.agent.key,
-                                     payload.body)) {
+        if (payload.mac !== Hash.hmac(this.agent.key,
+                                      payload.body)) {
             log("bad hmac, rejecting");
             return false;
         }
@@ -76,7 +81,7 @@ Sync.prototype = {
     },
 
     send_request: function(remote, method, sync_group, obj, success) {
-        Stxt.assert(this instanceof Sync);
+        Assert.instanceOf(this, Sync);
         var sync = this;
         var payload = this.form_payload(obj, sync_group);
         remote.send_request(method, payload, function(response) {
@@ -95,11 +100,13 @@ Sync.prototype = {
             sync.send_request(remote, "sync_group", gid, req, function(res) {
                 log("got first response for {:id}", gid);
                 sync.step(gid, res, function(req) {
-                    if (req.envelopes.length != 0) {
+                    if (req.envelopes.length !== 0) {
                         log("sending second request for {:id}", gid);
-                        sync.send_request(remote, "sync_group", gid, req, function(res) {
+                        sync.send_request(remote, "sync_group",
+                                          gid, req, function() {
                             log("got second response for {:id}", gid);
-                            log("synchronized {:id} after 2 round trips", gid);
+                            log("synchronized {:id} after 2 round trips",
+                                gid);
                             cb();
                         });
                     } else {
@@ -113,19 +120,21 @@ Sync.prototype = {
 
     // Client method: sync that will make RPCs.
     do_sync: function(remote, cb) {
-        Stxt.assert(this instanceof Sync);
+        Assert.instanceOf(this, Sync);
         log("starting top-level sync on {:id}", this.agent.group.id);
         var sync = this;
         this.agent.save(function() {
-            sync.agent.peer.visit_agent(sync.agent, function(gid, group, agent, more) {
-        log("do_sync attempt on {:id}, group is {}null",
-        gid, group ? "non-" : "");
-                if (group) {
-                    sync.sync_one_group(remote, gid, more);
-                } else {
-                    more();
-                }
-            }, function() { if (cb) { cb(); } });
+            sync.agent.peer.visit_agent(
+                sync.agent,
+                function(gid, group, agent, more) {
+                    log("do_sync attempt on {:id}, group is {}null",
+                        gid, group ? "non-" : "");
+                    if (group) {
+                        sync.sync_one_group(remote, gid, more);
+                    } else {
+                        more();
+                    }
+                }, function() { if (cb) { cb(); } });
         });
     },
 
@@ -136,7 +145,7 @@ Sync.prototype = {
     // we have that the other peer doesn't.
     step: function(sync_group, body, cb) {
         var sync = this;
-        Stxt.assert(sync instanceof Sync);
+        Assert.instanceOf(sync, Sync);
         sync.agent.peer.get_group(sync_group, function(group) {
             var res = {envelope_ids: group.list_envelopes()};
             var send_candidates = {};
@@ -179,7 +188,7 @@ Sync.prototype = {
                     var e = group.get_envelope(id);
                     n_to_send++;
                     return e.ct;
-                })
+                });
                 res.envelopes = cts;
             }
 
@@ -187,7 +196,7 @@ Sync.prototype = {
                 (n_inhibited_ids + n_inhibited_envs),
                 n_candidate,
                 n_inhibited_ids,
-                n_inhibited_envs)
+                n_inhibited_envs);
             log("sending {} fulltexts", n_to_send);
 
             if (dirty) {
@@ -201,7 +210,7 @@ Sync.prototype = {
 
     // Server methods: callbacks from an RPC host environment.
     sync_group: function(req, cb) {
-        Stxt.assert(this instanceof Sync);
+        Assert.instanceOf(this, Sync);
         var sync = this;
         sync.step(req.sync_group, req.body, function(res) {
             cb(sync.form_payload(res, req.sync_group));
@@ -217,13 +226,13 @@ Sync.Loopback = function(peer) {
 };
 Sync.Loopback.prototype = {
     step_sync: function(sync, payload, cb) {
-        Stxt.assert(sync.verify_payload(payload));
+        Assert.ok(sync.verify_payload(payload));
         sync.step(payload.sync_group, payload.body, function(res) {
             cb(sync.form_payload(res, payload.sync_group));
         });
     },
     send_request: function(method, payload, success) {
-        Stxt.assert(method == "sync_group");
+        Assert.equal(method, "sync_group");
         var gid = payload.agent_group;
         if (gid in this.syncs) {
             this.step_sync(this.syncs[gid], payload, success);
@@ -238,6 +247,5 @@ Sync.Loopback.prototype = {
     }
 };
 
-Stxt.Sync = Sync;
-return Sync;
-});
+module.exports = Sync;
+})();

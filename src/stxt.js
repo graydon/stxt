@@ -24,6 +24,7 @@ var Stxt = {
     Peer: require('./peer.js'),
     State: require('./state.js'),
     Store: require('./store.js'),
+    Sync: require('./sync.js'),
     Tag: require('./tag.js'),
     Trace: require('./trace.js'),
     Uletter: require('./uletter.js'),
