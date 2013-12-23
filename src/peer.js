@@ -5,16 +5,24 @@
 // This file may not be copied, modified, or distributed
 // except according to those terms.
 
-"use strict";
-if (typeof define !== 'function') { var define = require('amdefine')(module) }
-define(["sjcl",
-    "stxt/stxt", "stxt/hash", "stxt/key", "stxt/msg",
-    "stxt/tag", "stxt/agent", "stxt/group", "stxt/store"],
-function(sjcl, Stxt, Hash, Key, Msg, Tag, Agent, Group, Store) {
+(function() {
+'use strict';
 
-var log = Stxt.mkLog("peer");
-var vlog = Stxt.mkLog("visit");
-var gclog = Stxt.mkLog("gc");
+var sjcl = require('sjcl');
+
+var Agent = require('./agent.js');
+var Assert = require('./assert.js');
+var Fmt = require('./fmt.js');
+var Group = require('./group.js');
+var Hash = require('./hash.js');
+var Key = require('./key.js');
+var Msg = require('./msg.js');
+var Tag = require('./tag.js');
+var Trace = require('./trace.js');
+
+var log = Trace.mkLog("peer");
+var vlog = Trace.mkLog("visit");
+var gclog = Trace.mkLog("gc");
 
 var Peer = function(store, user, pw, salt, root_group_id) {
     this.root_group_id = root_group_id;
@@ -25,19 +33,19 @@ var Peer = function(store, user, pw, salt, root_group_id) {
     this.agents = {};
 };
 
-// Agent and Group objects should not be stored by JSON.stringify'ing them directly.
-// They are more subtle than that.
+// Agent and Group objects should not be stored by JSON.stringify'ing them
+// directly.  They are more subtle than that.
 
 Peer.attach = function(store, user, pw, cb) {
-    Stxt.assert(store)
-    Stxt.assert(typeof user == "string");
+    Assert.ok(store);
+    Assert.isString(user);
     store.has("cfg", "root-group", function(has_root) {
         if (has_root) {
             log("reloading root group id");
             store.get("cfg", "root-group", function(gid) {
                 store.get("cfg", "agent-salt", function(salt) {
                     var peer = new Peer(store, user, pw, salt, gid);
-                    peer.get_agent(gid, function(agent) {
+                    peer.get_agent(gid, function() {
                         cb(peer);
                     });
                 });
@@ -67,7 +75,7 @@ Peer.attach = function(store, user, pw, cb) {
                 });
             });
         }
-    })
+    });
 };
 
 Peer.prototype = {
@@ -75,13 +83,13 @@ Peer.prototype = {
         var groups = [];
         this.store.keys("group", function(key) {
             groups.push(key);
-        }, function() { cb(groups) });
+        }, function() { cb(groups); });
     },
     list_agents: function(groupid, cb) {
         var agents = [];
         this.store.keys("agent", function(key) {
             agents.push(key);
-        }, function() { cb(agents) });
+        }, function() { cb(agents); });
     },
     has_group: function(groupid, cb) {
         this.store.has("group", groupid, cb);
@@ -94,9 +102,9 @@ Peer.prototype = {
     },
     new_agent_with_new_group: function(gid, key) {
         if (key) {
-            Stxt.assert(gid == Hash.hash(key));
+            Assert.equal(gid, Hash.hash(key));
         } else {
-            Stxt.assert(!gid);
+            Assert.isNull(!gid);
             key = Hash.random();
             gid = Hash.hash(key);
         }
@@ -105,7 +113,7 @@ Peer.prototype = {
         return this.new_agent_for_group(group, key);
     },
     get_group: function(groupid, cb) {
-        Stxt.assert(this instanceof Peer);
+        Assert.instanceOf(this, Peer);
         if (groupid in this.groups) {
             cb(this.groups[groupid]);
         } else {
@@ -115,19 +123,19 @@ Peer.prototype = {
                 var g = JSON.parse(value);
                 for (var i in g) {
                     var e = g[i];
-                    Stxt.assert(e.group == groupid);
+                    Assert.equal(e.group, groupid);
                     var ee = new Msg.Envelope(e.group, e.ct);
-                    Stxt.assert(ee.id == i);
+                    Assert.equal(ee.id, i);
                     group.add_envelope(ee);
                 }
-                Stxt.assert(group.id == groupid);
+                Assert.equal(group.id, groupid);
                 cb(group);
             });
         }
     },
     put_group: function(group, cb) {
         if (group.id in this.groups) {
-            Stxt.assert(this.groups[group.id] === group);
+            Assert.equal(this.groups[group.id], group);
         } else {
             this.groups[group.id] = group;
         }
@@ -148,7 +156,7 @@ Peer.prototype = {
     // the agent is attached to.
     put_agent: function(agent, cb) {
         if (agent.group.id in this.agents) {
-            Stxt.assert(this.agents[agent.group.id] === agent);
+            Assert.equal(this.agents[agent.group.id], agent);
         } else {
             this.agents[agent.group.id] = agent;
         }
@@ -202,7 +210,7 @@ Peer.prototype = {
     },
 
     visit_gid: function(gid, each, done) {
-        var gg = Stxt.abbrev(gid);
+        var gg = Fmt.abbrev(gid);
         var peer = this;
         vlog("gid: " + gg);
         peer.has_agent(gid, function(has) {
@@ -229,15 +237,15 @@ Peer.prototype = {
 
     visit_agent_links: function(agent, each, done) {
         var links = agent.get_link_refs();
-        var gg = Stxt.abbrev(agent.group.id);
+        var gg = Fmt.abbrev(agent.group.id);
         var peer = this;
         vlog("" + gg + " has " + links.length + " links");
         function visit_link(n) {
-            if (n == links.length) {
+            if (n === links.length) {
                 done();
             } else {
-                vlog("" + gg + " link #" + n
-                     + ": " + Stxt.abbrev(links[n]));
+                vlog("" + gg + " link #" + n +
+                     ": " + Fmt.abbrev(links[n]));
                 peer.visit_gid(links[n], each, function() {
                     visit_link(n+1);
                 });
@@ -290,12 +298,11 @@ Peer.prototype = {
         var relinks = {};
         var all_agents = {};
         var all_groups = {};
-        var live_groups = {};
         var peer = this;
 
         peer.visit_all_linked_groups(function(gid, group, agent, cb) {
             if (agent) {
-        Stxt.assert(agent.group.id == gid);
+                Assert.equal(agent.group.id, gid);
                 gclog("phase 1: found agent {:id}", gid);
                 all_agents[gid] = agent;
             }
@@ -308,74 +315,82 @@ Peer.prototype = {
                 var agent = all_agents[gid];
                 gclog("phase 2: inspecting agent {:id}", gid);
                 if (agent.next) {
-                    gclog("phase 2: agent {:id} has next {:id}", gid, agent.next);
+                    gclog("phase 2: agent {:id} has next {:id}",
+                          gid, agent.next);
                     if (agent.next in all_agents) {
-                        gclog("phase 2: we have an agent for {:id}", agent.next);
+                        gclog("phase 2: we have an agent for {:id}",
+                              agent.next);
                         var next = all_agents[agent.next];
                         if (next.members_have_committed()) {
-                            gclog("phase 2: members have committted in {:id}", agent.next);
-                            gclog("phase 2: scheduling relink({:id}, {:id})", gid, agent.next);
-                            Stxt.assert(!(gid in relinks));
+                            gclog("phase 2: members have committted in {:id}",
+                                  agent.next);
+                            gclog("phase 2: scheduling relink({:id}, {:id})",
+                                  gid, agent.next);
+                            Assert.notProperty(relinks, gid);
                             relinks[gid] = agent.next;
                         }
                     }
                 }
             }
 
-        var groups_to_relink = Object.keys(all_groups);
-        var adjust_links = function(i, cb) {
-        if (i == groups_to_relink.length) {
-            cb();
-        } else {
-            var gid = groups_to_relink[i];
+            var groups_to_relink = Object.keys(all_groups);
+            var adjust_links = function(i, cb) {
+                if (i === groups_to_relink.length) {
+                    cb();
+                } else {
+                    var gid = groups_to_relink[i];
                     gclog("phase 3: inspecting agent {:id}", gid);
                     var agent = all_agents[gid];
                     var links = agent.get_link_refs();
-            var dirty = false;
+                    var dirty = false;
                     for (var j in links) {
-            var link = links[j];
-            gclog("phase 3: {:id} links to {:id}", gid, link);
-            if (link in relinks) {
-                            gclog("phase 3: changing link in {:id}: {:id} -> {:id}",
-                  gid, link, relinks[link]);
+                        var link = links[j];
+                        gclog("phase 3: {:id} links to {:id}", gid, link);
+                        if (link in relinks) {
+                            gclog("phase 3: changing link in " +
+                                  "{:id}: {:id} -> {:id}",
+                                  gid, link, relinks[link]);
                             agent.chg_link_ref(link, relinks[link]);
-            }
+                        }
                     }
-            if (dirty) {
-            agent.save(function() {adjust_links(i+1, cb)});
-            } else {
-            adjust_links(i+1, cb)
-            }
-        }
-        };
-        adjust_links(0, function() {
-        peer.visit_all_linked_groups(function(gid, group, agent, cb) {
+                    if (dirty) {
+                        agent.save(function() {
+                            adjust_links(i+1, cb);
+                        });
+                    } else {
+                        adjust_links(i+1, cb);
+                    }
+                }
+            };
+            adjust_links(0, function() {
+                peer.visit_all_linked_groups(function(gid, group, agent, cb) {
                     gclog("phase 4: {:id} still reachable", gid);
                     delete all_groups[gid];
                     cb();
-        }, function() {
+                }, function() {
                     var groups_to_delete = Object.keys(all_groups);
-                    gclog("phase 5: {} groups to delete", groups_to_delete.length);
+                    gclog("phase 5: {} groups to delete",
+                          groups_to_delete.length);
                     function del_group(i) {
-            if (i == groups_to_delete.length) {
-                            if (done_gc) { done_gc(relinks); }
-            } else {
+                        if (i === groups_to_delete.length) {
+                            if (done_gc) {
+                                done_gc(relinks);
+                            }
+                        } else {
                             var did = groups_to_delete[i];
-                            gclog("phase 5: deleting group and agent for {:id}", did);
+                            gclog("phase 5: deleting group and " +
+                                  "agent for {:id}", did);
                             peer.del_group_and_agent(did, function() {
-                del_group(i+1);
-                            })
-            }
+                                del_group(i+1);
+                            });
+                        }
                     }
                     del_group(0);
-        });
+                });
             });
-    });
+        });
     }
-
 };
 
-
-Stxt.Peer = Peer;
-return Peer;
-});
+module.exports = Peer;
+})();
