@@ -55,6 +55,11 @@ var logBits = {
       if (name in logBits) {
           logBits[name] = true;
       }
+      if (name === 'all') {
+          for (var k in logBits) {
+              logBits[k] = true;
+          }
+      }
   });
 
 var mkLog = function(bit) {
