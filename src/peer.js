@@ -183,29 +183,34 @@ Peer.prototype = {
     has_agent: function(groupid, cb) {
         this.store.has("agent", groupid, cb);
     },
-    get_agent: function(groupid, cb) {
+    get_agent: function(groupid) {
         // Records in the 'agent" table are
         //
         // groupid => { tag: tag, key: groupkey, pair: keypair }
         //
         var peer = this;
+        var agent_d = when.defer();
         if (groupid in this.agents) {
-            cb(this.agents[groupid]);
+            agent_d.resolve(this.agents[groupid]);
         } else {
             peer.get_group(groupid, function(group) {
-                peer.store.get("agent", groupid, function(value) {
+                peer.store.get_p("agent", groupid).then(function(value) {
                     var a = JSON.parse(value);
                     var agent = new Agent(group, a.key, a.pair,
                                           peer, a.tag);
                     peer.agents[groupid] = agent;
-                    cb(agent);
+                    agent_d.resolve(agent);
+                })
+                .otherwise(function(err) {
+                    agent_d.reject(err);
                 });
             });
         }
+        return agent_d.promise;
     },
 
-    get_root_agent: function(cb) {
-        this.get_agent(this.root_group_id, cb);
+    get_root_agent: function() {
+        return this.get_agent(this.root_group_id);
     },
 
     // NB: 'each' is a callback which will be called as
@@ -231,7 +236,7 @@ Peer.prototype = {
         peer.has_agent(gid, function(has) {
             if (has) {
                 vlog("have agent for " + gg);
-                peer.get_agent(gid, function(agent) {
+                peer.get_agent(gid).then(function(agent) {
                     peer.visit_agent(agent, each, done);
                 });
             } else {

@@ -442,7 +442,7 @@ Agent.prototype = {
 
     add_epoch: function(parents, state) {
         Assert.equal(Fmt.len(this.group.envelopes), 0);
-        log("NEW EPOCH for group {:id}, from {}",
+        log("new epoch for group {:id}, from {}",
             this.group.id, this.from());
         this.add_msg("epoch", {state: state}, parents);
     },

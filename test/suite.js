@@ -9,6 +9,8 @@ var when = require('when');
 
 var Stxt = require('../src/stxt.js');
 
+var log = Stxt.Trace.mkLog('test');
+
 var Assert = Stxt.Assert;
 describe('Basic', function(){
     it('testsuite functions', function(){
@@ -228,6 +230,9 @@ describe('Store', function() {
     });
 });
 
+var Peer = Stxt.Peer;
+var Agent = Stxt.Agent;
+
 function new_named_mem_peer(name) {
     var store = new Store("mem", "Memory",
                           Store.Memory.driver);
@@ -238,11 +243,18 @@ function new_mem_peer() {
     return new_named_mem_peer("testuser");
 }
 
-var Peer = Stxt.Peer;
+function new_mem_peer_root_agent() {
+    var agent_d = when.defer();
+    new_named_mem_peer("testuser")
+        .then(function(peer) {
+            agent_d.resolve(peer.get_root_agent());
+        }).otherwise(function(err) {
+            agent_d.reject(err);
+        });
+    return agent_d.promise;
+}
+
 describe('Peer', function() {
-
-    this.timeout(5000);
-
     it("can attach", function(done) {
         new_mem_peer().then(function(peer) {
             Assert.instanceOf(peer, Peer);
@@ -251,6 +263,46 @@ describe('Peer', function() {
         .done(null, done);
     });
 });
+
+
+var Msg = Stxt.Msg;
+function add_messages_and_sort(agent) {
+    log("making messages");
+    var x = new Msg(agent.group.id, []);
+    var y = new Msg(agent.group.id, [x.id]);
+    var z = new Msg(agent.group.id, [x.id, y.id]);
+    var msgs = [z, y, x];
+    log("adding messages");
+    agent.add_msg_raw(x);
+    agent.add_msg_raw(y);
+    agent.add_msg_raw(z);
+    log("sorting messages");
+    agent.get_graph().sort_msgs(msgs);
+    log("resulting order");
+    for (var i in msgs) {
+        log("    {:id}", msgs[i].id);
+    }
+    log("checking order");
+    Assert.deepEqual(msgs, [x,y,z]);
+}
+
+describe('Agent', function() {
+    it("can instantiate for peer's root group", function(done) {
+        new_mem_peer_root_agent().then(function(agent) {
+            Assert.instanceOf(agent, Agent);
+            done();
+        })
+        .done(null, done);
+    });
+    it("can inject messages", function(done) {
+        new_mem_peer_root_agent().then(function(agent) {
+            add_messages_and_sort(agent);
+            done();
+        })
+        .done(null, done);
+    });
+});
+
 
 
 })();
