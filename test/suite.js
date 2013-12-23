@@ -5,8 +5,9 @@
 /* global it */
 /* jshint maxlen: 100 */
 
-var Assert = require('chai').assert;
 var Stxt = require('../src/stxt.js');
+
+var Assert = Stxt.Assert;
 
 var Hash = Stxt.Hash;
 var Tag = Stxt.Tag;
@@ -98,22 +99,54 @@ describe('Curve25519', function() {
 });
 
 var Store = Stxt.Store;
-describe('store', function() {
+describe('Store', function() {
 
-    describe('mem driver', function() {
-
-        var store = new Store("mem", "Memory", Store.Memory.driver);
+    describe('Memory driver', function() {
 
         it("supports put", function(done) {
+            var store = new Store("mem", "Memory", Store.Memory.driver);
+            store.put_p('group', 'foo', 'bar')
+                .then(function() {
+                    return store.put_p('group', 'baz', 'quux');
+                }).then(function() {
+                    done();
+                })
+                .done(null, done);
+        });
+
+        it("supports put => has/!has", function(done) {
+            var store = new Store("mem", "Memory", Store.Memory.driver);
             store.put_p('group', 'foo', 'bar')
                 .then(function() {
                     return store.put_p('group', 'baz', 'quux');
                 })
-                .then(done);
+                .then(function() {
+                    return store.has_p('group', 'foo');
+                })
+                .then(function(v) {
+                    Assert.ok(v);
+                    return store.has_p('group', 'baz');
+                })
+                .then(function(v) {
+                    Assert.ok(v);
+                    return store.has_p('group', 'nope');
+                })
+                .then(function(v) {
+                    Assert.notOk(v);
+                    done();
+                })
+                .done(null, done);
         });
 
-        it("supports get from put", function(done) {
-            store.get_p('group', 'foo')
+        it("supports put => get", function(done) {
+            var store = new Store("mem", "Memory", Store.Memory.driver);
+            store.put_p('group', 'foo', 'bar')
+                .then(function() {
+                    return store.put_p('group', 'baz', 'quux');
+                })
+                .then(function() {
+                    return store.get_p('group', 'foo');
+                })
                 .then(function(v) {
                     Assert.equal(v, 'bar');
                     return store.get_p('group', 'baz');
@@ -121,9 +154,50 @@ describe('store', function() {
                 .then(function(v) {
                     Assert.equal(v, 'quux');
                     done();
-                });
+                })
+                .done(null, done);
         });
 
+        it("supports put => keys", function(done) {
+            var store = new Store("mem", "Memory", Store.Memory.driver);
+            store.put_p('group', 'foo', 'bar')
+                .then(function() {
+                    return store.put_p('group', 'baz', 'quux');
+                })
+                .then(function() {
+                    return store.keys_p('group');
+                })
+                .then(function(ks) {
+                    Assert.isArray(ks);
+                    ks.sort();
+                    Assert.deepEqual(ks, ['baz', 'foo']);
+                    done();
+                })
+                .done(null, done);
+        });
+
+        it("supports put => del => !has", function(done) {
+            var store = new Store("mem", "Memory", Store.Memory.driver);
+            store.put_p('group', 'foo', 'bar')
+                .then(function() {
+                    return store.put_p('group', 'baz', 'quux');
+                })
+                .then(function() {
+                    return store.has_p('group', 'foo');
+                })
+                .then(function(v) {
+                    Assert.ok(v);
+                    return store.del_p('group', 'foo');
+                })
+                .then(function() {
+                    return store.has_p('group', 'foo');
+                })
+                .then(function(v) {
+                    Assert.notOk(v);
+                    done();
+                })
+                .done(null, done);
+        });
 
     });
 });
