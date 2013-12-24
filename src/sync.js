@@ -146,7 +146,7 @@ Sync.prototype = {
     step: function(sync_group, body, cb) {
         var sync = this;
         Assert.instanceOf(sync, Sync);
-        sync.agent.peer.get_group(sync_group, function(group) {
+        sync.agent.peer.get_group(sync_group).done(function(group) {
             var res = {envelope_ids: group.list_envelopes()};
             var send_candidates = {};
 
@@ -226,19 +226,22 @@ Sync.Loopback = function(peer) {
 };
 Sync.Loopback.prototype = {
     step_sync: function(sync, payload, cb) {
+        log("in loopback.step_sync(...)");
         Assert.ok(sync.verify_payload(payload));
+        log("payload verified");
         sync.step(payload.sync_group, payload.body, function(res) {
             cb(sync.form_payload(res, payload.sync_group));
         });
     },
     send_request: function(method, payload, success) {
+        log("in loopback.send_request({}, ..)", method);
         Assert.equal(method, "sync_group");
         var gid = payload.agent_group;
         if (gid in this.syncs) {
             this.step_sync(this.syncs[gid], payload, success);
         } else {
             var loopback = this;
-            this.peer.get_agent(gid, function(agent) {
+            this.peer.get_agent(gid).done(function(agent) {
                 var sync = new Sync(agent);
                 loopback.syncs[gid] = sync;
                 loopback.step_sync(sync, payload, success);

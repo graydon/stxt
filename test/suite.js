@@ -18,8 +18,8 @@ describe('Basic', function(){
     });
 });
 
+var Fmt = Stxt.Fmt;
 describe('Fmt', function() {
-    var Fmt = Stxt.Fmt;
     it('abbreviates long lines', function() {
         Assert.equal(Fmt.abbrev('hello chicken delicious'),
                      'hello ch');
@@ -287,6 +287,7 @@ function add_messages_and_sort(agent) {
 }
 
 describe('Agent', function() {
+
     it("can instantiate for peer's root group", function(done) {
         new_mem_peer_root_agent().then(function(agent) {
             Assert.instanceOf(agent, Agent);
@@ -294,6 +295,7 @@ describe('Agent', function() {
         })
         .done(null, done);
     });
+
     it("can inject messages", function(done) {
         new_mem_peer_root_agent().then(function(agent) {
             add_messages_and_sort(agent);
@@ -328,6 +330,128 @@ describe('Agent', function() {
     });
 });
 
+function setup_alice_and_bob_conversation() {
+
+    var conv_d = when.defer();
+
+    var peer_a_p = new_named_mem_peer("alice");
+    var peer_b_p = new_named_mem_peer("bob");
+
+    when.join(peer_a_p, peer_b_p).spread(function(peer_a,
+                                                  peer_b) {
+
+        var root_agent_a_p = peer_a.get_root_agent();
+        var root_agent_b_p = peer_b.get_root_agent();
+
+        when.join(root_agent_a_p, root_agent_b_p).spread(function(root_agent_a,
+                                                                  root_agent_b) {
+
+            log("root agent A: from={}, group.id={:id}",
+                root_agent_a.from(), root_agent_a.group.id);
+
+            log("root agent B: from={}, group.id={:id}",
+                root_agent_b.from(), root_agent_b.group.id);
+
+            Assert.notEqual(root_agent_a.from().toString(),
+                            root_agent_b.from().toString());
+
+            var conv_agent_a = peer_a.new_agent_with_new_group();
+
+            var conv_agent_b = peer_b.new_agent_with_new_group(conv_agent_a.group.id,
+                                                               conv_agent_a.key);
+
+            log("conv agent A: from={}, group.id={:id}",
+                conv_agent_a.from(), conv_agent_b.group.id);
+
+            log("conv agent B: from={}, group.id={:id}",
+                conv_agent_b.from(), conv_agent_b.group.id);
+
+            Assert.notEqual(conv_agent_a.from().toString(),
+                            conv_agent_b.from().toString());
+
+            root_agent_a.add_link_ref(conv_agent_a.group.id);
+            root_agent_b.add_link_ref(conv_agent_b.group.id);
+
+            conv_d.resolve([peer_a, peer_b,
+                            root_agent_a, root_agent_b,
+                            conv_agent_a, conv_agent_b]);
+        }).otherwise(function(err) {
+            conv_d.reject(err);
+        });
+    }).otherwise(function(err) {
+        conv_d.reject(err);
+    });
+    return conv_d.promise;
+}
+
+var Sync = Stxt.Sync;
+describe('Sync', function() {
+
+    this.timeout(10000);
+
+    it("can have a private conversation", function(done) {
+        setup_alice_and_bob_conversation().spread(function(peer_a, peer_b,
+                                                           root_agent_a, root_agent_b,
+                                                           sub_agent_a, sub_agent_b) {
+
+            log("instantiating pair of syncs");
+            var a_sync = new Sync(sub_agent_a);
+            var b_remote = new Sync.Loopback(peer_b);
+            log("adding epoch if missing");
+            sub_agent_a.add_epoch_if_missing();
+            log("adding B as a member from A's agent");
+            sub_agent_a.add_member(sub_agent_b.from());
+            log("adding a ping from A's agent");
+            sub_agent_a.add_ping();
+            log("doing initial sync");
+            a_sync.do_sync(b_remote, function() {
+                log("decrypting all messages");
+                sub_agent_b.decrypt_all();
+                log("checking 3 messages arrived in agent B");
+                Assert.equal(Fmt.len(sub_agent_b.msgs), 3);
+                log("adding a ping from agent B");
+                sub_agent_b.add_ping();
+                log("doing second sync");
+                a_sync.do_sync(b_remote, function() {
+                    Assert.equal(Fmt.len(sub_agent_a.msgs), 4);
+                    log("adding another ping from agent A");
+                    sub_agent_a.add_ping();
+                    log("doing third sync");
+                    a_sync.do_sync(b_remote, function() {
+                        Assert.equal(Fmt.len(sub_agent_b.msgs), 5);
+                        log("attempting to rotate from agent A");
+                        sub_agent_a.maybe_derive_next_agent(function(sub_agent2_a) {
+                            log("attempting to rotate from agent B");
+                            sub_agent_b.maybe_derive_next_agent(function(sub_agent2_b) {
+                                Assert.ok(sub_agent2_a);
+                                Assert.ok(sub_agent2_b);
+                                log("derived next-agent A: from={}, group.id={:id}",
+                                    sub_agent2_a.from(), sub_agent2_a.group.id);
+                                log("derived next-agent B: from={}, group.id={:id}",
+                                    sub_agent2_b.from(), sub_agent2_b.group.id);
+                                Assert.equal(sub_agent2_a.group.id,
+                                             sub_agent2_b.group.id);
+                                log("doing fourth  sync");
+                                a_sync.do_sync(b_remote, function() {
+                                    log("beginning GC");
+                                    peer_a.gc(function() {
+                                        log("GC complete, checking if A has group {:id}",
+                                            sub_agent_a.group.id);
+                                        peer_a.has_group(sub_agent_a.group.id).done(function(has) {
+                                            // Check that the old group got gc'ed
+                                            Assert.notOk(has);
+                                            done();
+                                        });
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        }).done(null, done);
+    });
+});
 
 
 })();

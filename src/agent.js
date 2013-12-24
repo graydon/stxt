@@ -278,9 +278,9 @@ Agent.prototype = {
         if (agent.next) {
             log("already DONE group {:id}, next group {:id}",
                 agent.group.id, agent.next);
-            agent.peer.has_agent(agent.next, function(has) {
+            agent.peer.has_agent(agent.next).done(function(has) {
                 if (has) {
-                    agent.peer.get_agent(agent.next, cb);
+                    agent.peer.get_agent(agent.next).then(cb);
                 } else {
                     var next_agent =
                         peer.new_agent_with_new_group(gid, next_key);

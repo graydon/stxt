@@ -52,10 +52,10 @@ Store.prototype = {
         this.put_p(kind, key, val).then(cb);
     },
     del: function(kind, key, cb) {
-        this.put_p(kind, key).then(cb);
+        this.del_p(kind, key).then(cb);
     },
     keys: function(kind, cb) {
-        this.put_p(kind).then(cb);
+        this.keys_p(kind).then(cb);
     }
 };
 

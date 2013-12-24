@@ -94,20 +94,14 @@ Peer.attach = function(store, user, pw) {
 };
 
 Peer.prototype = {
-    list_groups: function(groupid, cb) {
-        var groups = [];
-        this.store.keys("group", function(key) {
-            groups.push(key);
-        }, function() { cb(groups); });
+    list_groups: function() {
+        return this.store.keys_p("group");
     },
-    list_agents: function(groupid, cb) {
-        var agents = [];
-        this.store.keys("agent", function(key) {
-            agents.push(key);
-        }, function() { cb(agents); });
+    list_agents: function() {
+        return this.store.keys_p("agent");
     },
-    has_group: function(groupid, cb) {
-        this.store.has("group", groupid, cb);
+    has_group: function(groupid) {
+        return this.store.has_p("group", groupid);
     },
     new_agent_for_group: function(group, key) {
         var pair = Key.genpair();
@@ -127,14 +121,15 @@ Peer.prototype = {
         this.groups[gid] = group;
         return this.new_agent_for_group(group, key);
     },
-    get_group: function(groupid, cb) {
+    get_group: function(groupid) {
         Assert.instanceOf(this, Peer);
+        var group_d = when.defer();
         if (groupid in this.groups) {
-            cb(this.groups[groupid]);
+            group_d.resolve(this.groups[groupid]);
         } else {
             var group = new Group(groupid, this);
             this.groups[groupid] = group;
-            this.store.get("group", groupid, function(value) {
+            this.store.get("group", groupid).done(function(value) {
                 var g = JSON.parse(value);
                 for (var i in g) {
                     var e = g[i];
@@ -144,9 +139,12 @@ Peer.prototype = {
                     group.add_envelope(ee);
                 }
                 Assert.equal(group.id, groupid);
-                cb(group);
+                group_d.resolve(group);
+            }).otherwise(function(err) {
+                group_d.reject(err);
             });
         }
+        return group_d.promise;
     },
     put_group: function(group) {
         if (group.id in this.groups) {
@@ -158,13 +156,14 @@ Peer.prototype = {
         return this.store.put_p("group", group.id, JSON.stringify(envs));
     },
 
-    del_group_and_agent: function(gid, cb) {
+    del_group_and_agent: function(gid) {
         var peer = this;
         delete peer.groups[gid];
         delete peer.agents[gid];
-        peer.store.del("agent", gid, function() {
-            peer.store.del("group", gid, cb);
-        });
+        return peer.store.del_p("agent", gid)
+            .then(function() {
+                peer.store.del_p("group", gid);
+            });
     },
 
     // The agent interface implicitly loads the group that
@@ -180,8 +179,8 @@ Peer.prototype = {
                                 pair: agent.pair});
         this.store.put("agent", agent.group.id, a, cb);
     },
-    has_agent: function(groupid, cb) {
-        this.store.has("agent", groupid, cb);
+    has_agent: function(groupid) {
+        return this.store.has_p("agent", groupid);
     },
     get_agent: function(groupid) {
         // Records in the 'agent" table are
@@ -194,7 +193,7 @@ Peer.prototype = {
             agent_d.resolve(this.agents[groupid]);
         } else {
             peer.get_group(groupid, function(group) {
-                peer.store.get_p("agent", groupid).then(function(value) {
+                peer.store.get_p("agent", groupid).done(function(value) {
                     var a = JSON.parse(value);
                     var agent = new Agent(group, a.key, a.pair,
                                           peer, a.tag);
@@ -233,17 +232,17 @@ Peer.prototype = {
         var gg = Fmt.abbrev(gid);
         var peer = this;
         vlog("gid: " + gg);
-        peer.has_agent(gid, function(has) {
+        peer.has_agent(gid).done(function(has) {
             if (has) {
                 vlog("have agent for " + gg);
-                peer.get_agent(gid).then(function(agent) {
+                peer.get_agent(gid).done(function(agent) {
                     peer.visit_agent(agent, each, done);
                 });
             } else {
-                peer.has_group(gid, function(has) {
+                peer.has_group(gid).done(function(has) {
                     if (has) {
                         vlog("have no agent, but group for " + gg);
-                        peer.get_group(gid, function(group) {
+                        peer.get_group(gid).done(function(group) {
                             each(gid, group, null, done);
                         });
                     } else {
@@ -400,7 +399,7 @@ Peer.prototype = {
                             var did = groups_to_delete[i];
                             gclog("phase 5: deleting group and " +
                                   "agent for {:id}", did);
-                            peer.del_group_and_agent(did, function() {
+                            peer.del_group_and_agent(did).done(function() {
                                 del_group(i+1);
                             });
                         }
