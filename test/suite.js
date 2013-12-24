@@ -78,12 +78,16 @@ describe('Hash (sha256)', function(){
 describe('Tag', function(){
     var Tag = Stxt.Tag;
     var bob = Tag.new_user('bob');
+    var conv = Tag.new_group('conv');
     it('generates tags with correct nick and kind', function(){
         Assert.equal(bob.kind, 'u');
         Assert.equal(bob.nick, 'bob');
+        Assert.equal(conv.kind, 'g');
+        Assert.equal(conv.nick, 'conv');
     });
     it('can re-parse its own stringification', function(){
         Assert.deepEqual(bob, Tag.parse(bob.toString()));
+        Assert.deepEqual(conv, Tag.parse(conv.toString()));
     });
 });
 
@@ -277,13 +281,20 @@ function add_messages_and_sort(agent) {
     agent.add_msg_raw(y);
     agent.add_msg_raw(z);
     log("sorting messages");
-    agent.get_graph().sort_msgs(msgs);
+    var graph = agent.get_graph();
+    graph.sort_msgs(msgs);
     log("resulting order");
     for (var i in msgs) {
         log("    {:id}", msgs[i].id);
     }
     log("checking order");
     Assert.deepEqual(msgs, [x,y,z]);
+    Assert.notOk(msgs[0].has_parent_id(msgs[0].id));
+    Assert.ok(msgs[1].has_parent_id(msgs[0].id));
+    Assert.ok(msgs[2].has_parent_id(msgs[0].id));
+    Assert.ok(msgs[2].has_parent_id(msgs[1].id));
+    Assert.ok(graph.dominates(msgs[0].id, msgs[1].id));
+    Assert.ok(graph.dominates(msgs[0].id, msgs[2].id));
 }
 
 describe('Agent', function() {

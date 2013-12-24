@@ -52,12 +52,18 @@ var logBits = {
 (process.env.LOG || '')
   .split(/[\s,]+/)
   .forEach(function(name){
+      var k;
       if (name in logBits) {
           logBits[name] = true;
       }
-      if (name === 'all') {
-          for (var k in logBits) {
+      else if (name === 'all') {
+          for (k in logBits) {
               logBits[k] = true;
+          }
+      }
+      else if (name === 'none') {
+          for (k in logBits) {
+              logBits[k] = false;
           }
       }
   });
