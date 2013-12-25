@@ -36,6 +36,7 @@
 "use strict";
 
 var sjcl = require('sjcl');
+var when = require('when');
 
 var Assert = require('./assert.js');
 var Hash = require('./hash.js');
@@ -55,11 +56,11 @@ Sync.prototype = {
         var secbits = sjcl.random.randomWords(8);
         return sjcl.codec.hex.fromBits(secbits);
     },
-    form_payload: function(obj, sync_group) {
+    form_payload: function(obj, sync_gid) {
         Assert.instanceOf(this, Sync);
         return {
             agent_group: this.agent.group.id,
-            sync_group: sync_group,
+            sync_group: sync_gid,
             mac: Hash.hmac(this.agent.key, obj),
             body: obj,
             nonce: this.nonce()
@@ -80,30 +81,46 @@ Sync.prototype = {
         return true;
     },
 
-    send_request: function(remote, method, sync_group, obj, success) {
+    /**
+     * Encode request payload, send to a remote, verify response.
+     *
+     * @this {Sync}
+     * @param {Object} remote     The remote to talk to.
+     * @param {String} method     The method-name to RPC on the remote.
+     * @param {String} sync_gid   The group ID to synchronize.
+     * @return {Promise<Object>}  The response's .body field.
+     */
+    send_request: function(remote, method, sync_gid, obj) {
         Assert.instanceOf(this, Sync);
+        Assert.isObject(remote);
+        Assert.isString(method);
+        Assert.isString(sync_gid);
+        Assert.isObject(obj);
         var sync = this;
-        var payload = this.form_payload(obj, sync_group);
+        var response_d = when.defer();
+        var payload = this.form_payload(obj, sync_gid);
         remote.send_request(method, payload, function(response) {
             if (sync.verify_payload(response)) {
-                success(response.body);
+                response_d.resolve(response.body);
             } else {
-                log("got bad response, stopping");
+                response_d.reject("payload verification failed");
             }
         });
+        return response_d.promise;
     },
 
     sync_one_group: function(remote, gid, cb) {
         var sync = this;
         sync.step(gid, {}, function(req) {
             log("sending first request for {:id}", gid);
-            sync.send_request(remote, "sync_group", gid, req, function(res) {
+            sync.send_request(remote, "sync_group",
+                              gid, req).then(function(res) {
                 log("got first response for {:id}", gid);
                 sync.step(gid, res, function(req) {
                     if (req.envelopes.length !== 0) {
                         log("sending second request for {:id}", gid);
                         sync.send_request(remote, "sync_group",
-                                          gid, req, function() {
+                                          gid, req).then(function() {
                             log("got second response for {:id}", gid);
                             log("synchronized {:id} after 2 round trips",
                                 gid);

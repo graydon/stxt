@@ -276,7 +276,7 @@ Agent.prototype = {
         }
 
         if (agent.next) {
-            log("already DONE group {:id}, next group {:id}",
+            log("already done group {:id}, next group {:id}",
                 agent.group.id, agent.next);
             agent.peer.has_agent(agent.next).done(function(has) {
                 if (has) {
@@ -284,7 +284,7 @@ Agent.prototype = {
                 } else {
                     var next_agent =
                         peer.new_agent_with_new_group(gid, next_key);
-                    log("DONE group {:id}, derived next group {:id}",
+                    log("done group {:id}, derived next group {:id}",
                         agent.group.id, next_agent.group.id);
                     agent.set_next(next_agent.group.id);
                     next_agent.add_epoch(agent.get_graph().leaf_ids(),
