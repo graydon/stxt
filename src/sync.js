@@ -109,30 +109,51 @@ Sync.prototype = {
         return response_d.promise;
     },
 
-    sync_one_group: function(remote, gid, cb) {
+    /**
+     * Send messages in group to remote, and receive any missing messages.
+     *
+     * @this {Sync}
+     * @param {Object} remote    The remote to talk to.
+     * @param {String} gid       The group to synchronize.
+     * @return Promise<>         Fires when synchronization is complete.
+     *
+     */
+    sync_one_group: function(remote, gid) {
+        Assert.instanceOf(this, Sync);
+        Assert.isObject(remote);
+        Assert.isString(gid);
         var sync = this;
+        var done_d = when.defer();
         sync.step(gid, {}, function(req) {
             log("sending first request for {:id}", gid);
-            sync.send_request(remote, "sync_group",
-                              gid, req).then(function(res) {
-                log("got first response for {:id}", gid);
-                sync.step(gid, res, function(req) {
-                    if (req.envelopes.length !== 0) {
-                        log("sending second request for {:id}", gid);
-                        sync.send_request(remote, "sync_group",
-                                          gid, req).then(function() {
-                            log("got second response for {:id}", gid);
-                            log("synchronized {:id} after 2 round trips",
-                                gid);
-                            cb();
-                        });
-                    } else {
-                        log("synchronized {:id} after 1 round trip", gid);
-                        cb();
-                    }
-                });
+            sync.send_request(remote, "sync_group", gid, req)
+                .then(function(res) {
+                    log("got first response for {:id}", gid);
+                    sync.step(gid, res, function(req) {
+                        if (req.envelopes.length !== 0) {
+                            log("sending second request for {:id}", gid);
+                            sync.send_request(remote, "sync_group", gid, req)
+                                .then(function() {
+                                    log("got second response for {:id}", gid);
+                                    log("synchronized {:id} " +
+                                        "after 2 round trips",
+                                        gid);
+                                    done_d.resolve();
+                                })
+                                .otherwise(function(err) {
+                                    done_d.reject(err);
+                                });
+                        } else {
+                            log("synchronized {:id} after 1 round trip", gid);
+                            done_d.resolve();
+                        }
+                    });
+                })
+            .otherwise(function(err) {
+                done_d.reject(err);
             });
         });
+        return done_d.promise;
     },
 
     // Client method: sync that will make RPCs.
@@ -147,7 +168,7 @@ Sync.prototype = {
                     log("do_sync attempt on {:id}, group is {}null",
                         gid, group ? "non-" : "");
                     if (group) {
-                        sync.sync_one_group(remote, gid, more);
+                        sync.sync_one_group(remote, gid, more).then(more);
                     } else {
                         more();
                     }
