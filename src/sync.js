@@ -115,7 +115,7 @@ Sync.prototype = {
      * @this {Sync}
      * @param {Object} remote    The remote to talk to.
      * @param {String} gid       The group to synchronize.
-     * @return Promise<>         Fires when synchronization is complete.
+     * @return Promise<>         Resolved when synchronization is complete.
      *
      */
     sync_one_group: function(remote, gid) {
@@ -156,11 +156,20 @@ Sync.prototype = {
         return done_d.promise;
     },
 
-    // Client method: sync that will make RPCs.
-    do_sync: function(remote, cb) {
+    /**
+     * Recursively sync all groups reachable from this.agent (in which
+     * this.agent.peer has agency) with remote.
+     *
+     * @this {Sync}
+     * @param {Object} remote    The remote to talk to.
+     * @return Promise<>         Resolved when synchronization is complete.
+     */
+    do_sync: function(remote) {
         Assert.instanceOf(this, Sync);
+        Assert.isObject(remote);
         log("starting top-level sync on {:id}", this.agent.group.id);
         var sync = this;
+        var done_d = when.defer();
         this.agent.save(function() {
             sync.agent.peer.visit_agent(
                 sync.agent,
@@ -168,12 +177,20 @@ Sync.prototype = {
                     log("do_sync attempt on {:id}, group is {}null",
                         gid, group ? "non-" : "");
                     if (group) {
-                        sync.sync_one_group(remote, gid, more).then(more);
+                        sync.sync_one_group(remote, gid, more)
+                            .then(more)
+                            .otherwise(function(err) {
+                                done_d.reject(err);
+                            });
                     } else {
                         more();
                     }
-                }, function() { if (cb) { cb(); } });
+                },
+                function() {
+                    done_d.resolve();
+                });
         });
+        return done_d.promise;
     },
 
     // Symmetric operation done on client and server: takes a sync

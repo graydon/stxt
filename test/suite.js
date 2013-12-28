@@ -415,7 +415,7 @@ describe('Sync', function() {
             log("adding a ping from A's agent");
             sub_agent_a.add_ping();
             log("doing initial sync");
-            a_sync.do_sync(b_remote, function() {
+            a_sync.do_sync(b_remote).then(function() {
                 log("decrypting all messages");
                 sub_agent_b.decrypt_all();
                 log("checking 3 messages arrived in agent B");
@@ -423,12 +423,12 @@ describe('Sync', function() {
                 log("adding a ping from agent B");
                 sub_agent_b.add_ping();
                 log("doing second sync");
-                a_sync.do_sync(b_remote, function() {
+                a_sync.do_sync(b_remote).then(function() {
                     Assert.equal(Fmt.len(sub_agent_a.msgs), 4);
                     log("adding another ping from agent A");
                     sub_agent_a.add_ping();
                     log("doing third sync");
-                    a_sync.do_sync(b_remote, function() {
+                    a_sync.do_sync(b_remote).then(function() {
                         Assert.equal(Fmt.len(sub_agent_b.msgs), 5);
                         log("attempting to rotate from agent A");
                         sub_agent_a.maybe_derive_next_agent(function(sub_agent2_a) {
@@ -443,7 +443,7 @@ describe('Sync', function() {
                                 Assert.equal(sub_agent2_a.group.id,
                                              sub_agent2_b.group.id);
                                 log("doing fourth  sync");
-                                a_sync.do_sync(b_remote, function() {
+                                a_sync.do_sync(b_remote).then(function() {
                                     log("beginning GC");
                                     peer_a.gc(function() {
                                         log("GC complete, checking if A has group {:id}",
