@@ -153,12 +153,12 @@ Sync.prototype = {
         Assert.isString(gid);
         var sync = this;
         var done_d = when.defer();
-        sync.step(gid, {}, function(req) {
+        sync.step(gid, {}).then(function(req) {
             log("sending first request for {:id}", gid);
             sync.send_request(remote, "sync_group", gid, req)
                 .then(function(res) {
                     log("got first response for {:id}", gid);
-                    sync.step(gid, res, function(req) {
+                    sync.step(gid, res).then(function(req) {
                         if (req.envelopes.length !== 0) {
                             log("sending second request for {:id}", gid);
                             sync.send_request(remote, "sync_group", gid, req)
@@ -222,15 +222,27 @@ Sync.prototype = {
         return done_d.promise;
     },
 
-    // Symmetric operation done on client and server: takes a sync
-    // gid and partial list of envelope_ids in the other peer and
-    // possibly a bunch of actual envelopes we're missing. Adds
-    // the ones we don't have to our db, loads and sends the ones
-    // we have that the other peer doesn't.
-    step: function(sync_group, body, cb) {
+    /**
+     * Receive an object carrying (possibly empty, partial) arrays of
+     * envelopes and envelope_ids carried on the remote peer for a given
+     * group; respond with a list of the envelopes this peer has that the
+     * remote peer is missing.
+     *
+     * @this {Sync}
+     * @param {String} sync_gid    The group to synchronize.
+     * @param {Object} body        Object with .envelopes and .envelope_ids.
+     * @return Promise<res>        Promise for a similarly-structured object.
+     */
+
+    step: function(sync_gid, body) {
         var sync = this;
         Assert.instanceOf(sync, Sync);
-        sync.agent.peer.get_group(sync_group).done(function(group) {
+        Assert.isString(sync_gid);
+        Assert.isObject(body);
+
+        var res_d = when.defer();
+
+        sync.agent.peer.get_group(sync_gid).then(function(group) {
             var res = {envelope_ids: group.list_envelopes()};
             var send_candidates = {};
 
@@ -247,7 +259,7 @@ Sync.prototype = {
 
             if ('envelopes' in body) {
                 body.envelopes.forEach(function(ct) {
-                    var e = new Msg.Envelope(sync_group, ct);
+                    var e = new Msg.Envelope(sync_gid, ct);
                     var id = e.id;
                     if (group.has_envelope(id)) {
                         log("redundant envelope: {:id}", id);
@@ -285,18 +297,21 @@ Sync.prototype = {
 
             if (dirty) {
                 log("writing modified group {:id}", group.id);
-                group.save(function() { cb(res); });
+                group.save(function() {
+                    res_d.resolve(res);
+                });
             } else {
-                cb(res);
+                res_d.resolve(res);
             }
-        });
+        }).otherwise(function(err) { res_d.reject(err); });
+        return res_d.promise;
     },
 
     // Server methods: callbacks from an RPC host environment.
     sync_group: function(req, cb) {
         Assert.instanceOf(this, Sync);
         var sync = this;
-        sync.step(req.sync_group, req.body, function(res) {
+        sync.step(req.sync_group, req.body).then(function(res) {
             cb(sync.form_payload(res, req.sync_group));
         });
     },
@@ -313,7 +328,7 @@ Sync.Loopback.prototype = {
         log("in loopback.step_sync(...)");
         Assert.ok(sync.verify_payload(payload));
         log("payload verified");
-        sync.step(payload.sync_group, payload.body, function(res) {
+        sync.step(payload.sync_group, payload.body).then(function(res) {
             cb(sync.form_payload(res, payload.sync_group));
         });
     },
