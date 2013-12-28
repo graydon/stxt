@@ -52,20 +52,49 @@ var Sync = function(agent) {
 };
 
 Sync.prototype = {
+
+    /**
+     * Generate a random 256-bit hex nonce.
+     *
+     * @return {String}     The nonce.
+     */
     nonce: function() {
         var secbits = sjcl.random.randomWords(8);
         return sjcl.codec.hex.fromBits(secbits);
     },
+
+    /**
+     * Add HMAC (using this.agent.key), nonce and agent/group identities to
+     * a sync request or response, to make it a safe "payload" ready to
+     * send over an unauthenticated RPC mechanism.
+     *
+     * @this {Sync}
+     * @param {Object} obj        The req/res object to calculate an HMAC of.
+     * @param {String} sync_gid   The current group ID being synchronized.
+     * @return {Object}           A "payload object" to be serialized.
+     */
     form_payload: function(obj, sync_gid) {
         Assert.instanceOf(this, Sync);
-        return {
+        Assert.isString(sync_gid);
+        var payload = {
             agent_group: this.agent.group.id,
             sync_group: sync_gid,
             mac: Hash.hmac(this.agent.key, obj),
             body: obj,
             nonce: this.nonce()
         };
+        Object.freeze(payload);
+        return payload;
     },
+
+    /**
+     * Verify a "payload object" has a valid HMAC and isn't a replay of
+     * a nonce we've seen before.
+     *
+     * @this {Sync}
+     * @param {Object} payload    The payload to verify.
+     * @return {bool}             True if the payload is ok, else false.
+     */
     verify_payload: function(payload) {
         Assert.instanceOf(this, Sync);
         if (payload.nonce in this.nonces) {
