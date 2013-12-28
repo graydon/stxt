@@ -153,35 +153,41 @@ Sync.prototype = {
         Assert.isString(gid);
         var sync = this;
         var done_d = when.defer();
-        sync.step(gid, {}).then(function(req) {
-            log("sending first request for {:id}", gid);
-            sync.send_request(remote, "sync_group", gid, req)
-                .then(function(res) {
-                    log("got first response for {:id}", gid);
-                    sync.step(gid, res).then(function(req) {
-                        if (req.envelopes.length !== 0) {
-                            log("sending second request for {:id}", gid);
-                            sync.send_request(remote, "sync_group", gid, req)
-                                .then(function() {
-                                    log("got second response for {:id}", gid);
-                                    log("synchronized {:id} " +
-                                        "after 2 round trips",
+        function ok() { done_d.resolve(); }
+        function bad(err) { done_d.reject(err); }
+
+        sync.step(gid, {})
+            .then(function(req) {
+                log("sending 1st request for {:id}", gid);
+                sync.send_request(remote, "sync_group", gid, req)
+                    .then(function(res) {
+                        log("got 1st response for {:id}", gid);
+                        sync.step(gid, res)
+                            .then(function(req) {
+                                if (req.envelopes.length !== 0) {
+                                    log("sending 2nd request for {:id}",
                                         gid);
-                                    done_d.resolve();
-                                })
-                                .otherwise(function(err) {
-                                    done_d.reject(err);
-                                });
-                        } else {
-                            log("synchronized {:id} after 1 round trip", gid);
-                            done_d.resolve();
-                        }
-                    });
-                })
-            .otherwise(function(err) {
-                done_d.reject(err);
-            });
-        });
+                                    sync.send_request(remote, "sync_group",
+                                                      gid, req)
+                                        .then(function() {
+                                            log("got 2nd response for {:id}",
+                                                gid);
+                                            log("synchronized {:id} " +
+                                                "after 2 RTs",
+                                                gid);
+                                            ok();
+                                        })
+                                        .otherwise(bad);
+                                } else {
+                                    log("synchronized {:id} after 1 RT",
+                                        gid);
+                                    ok();
+                                }
+                            })
+                            .otherwise(bad);
+                    })
+                    .otherwise(bad);
+            }).otherwise(bad);
         return done_d.promise;
     },
 
@@ -198,26 +204,24 @@ Sync.prototype = {
         Assert.isObject(remote);
         log("starting top-level sync on {:id}", this.agent.group.id);
         var sync = this;
+
+        function each(gid, group) {
+            log("do_sync attempt on {:id}, group is {}null",
+                gid, group ? "non-" : "");
+            if (group) {
+                return sync.sync_one_group(remote, gid);
+            } else {
+                return when.resolve(null);
+            }
+        }
+
         var done_d = when.defer();
+        function ok() { done_d.resolve(); }
+        function bad(err) { done_d.reject(err); }
         this.agent.save(function() {
-            sync.agent.peer.visit_agent(
-                sync.agent,
-                function(gid, group, agent, more) {
-                    log("do_sync attempt on {:id}, group is {}null",
-                        gid, group ? "non-" : "");
-                    if (group) {
-                        sync.sync_one_group(remote, gid, more)
-                            .then(more)
-                            .otherwise(function(err) {
-                                done_d.reject(err);
-                            });
-                    } else {
-                        more();
-                    }
-                },
-                function() {
-                    done_d.resolve();
-                });
+            sync.agent.peer.visit_agent_p(sync.agent, each)
+                .then(ok)
+                .otherwise(bad);
         });
         return done_d.promise;
     },

@@ -212,6 +212,81 @@ Peer.prototype = {
         return this.get_agent(this.root_group_id);
     },
 
+    visit_gid_p: function(gid, each) {
+        var gg = Fmt.abbrev(gid);
+        var peer = this;
+        var done_d = when.defer();
+        function ok() {
+            done_d.resolve();
+        }
+        function bad(err) {
+            done_d.reject(err);
+        }
+        vlog("gid: " + gg);
+        peer.has_agent(gid).then(function(has) {
+            if (has) {
+                vlog("have agent for " + gg);
+                peer.get_agent(gid)
+                    .then(function(agent) {
+                        peer.visit_agent_p(agent, each)
+                            .then(ok)
+                            .otherwise(bad);
+                    }).otherwise(bad);
+            } else {
+                peer.has_group(gid).then(function(has) {
+                    if (has) {
+                        vlog("have no agent, but group for " + gg);
+                        peer.get_group(gid)
+                            .then(function(group) {
+                                each(gid, group, null)
+                                    .then(ok)
+                                    .otherwise(bad);
+                            })
+                            .then(ok)
+                            .otherwise(bad);
+                    } else {
+                        vlog("have no agent or group for " + gg);
+                        each(gid, null, null)
+                            .then(ok)
+                            .otherwise(bad);
+                    }
+                }).otherwise(bad);
+            }
+        }).otherwise(bad);
+        return done_d.promise;
+    },
+
+    visit_agent_links_p: function(agent, each) {
+        var links = agent.get_link_refs();
+        var gg = Fmt.abbrev(agent.group.id);
+        var peer = this;
+        vlog("" + gg + " has " + links.length + " links");
+        return when.map(links, function(link) {
+            return peer.visit_gid_p(link, each);
+        });
+    },
+
+    visit_agent_next_p: function(agent, each) {
+        var peer = this;
+        if (agent.next) {
+            vlog("agent {:id} next: {:id}", agent.group.id, agent.next);
+            return peer.visit_gid_p(agent.next, each);
+        } else {
+            vlog("agent {:id} has no next, looking at links",
+                 agent.group.id);
+            return peer.visit_agent_links_p(agent, each);
+        }
+    },
+
+    visit_agent_p: function(agent, each) {
+        var peer = this;
+        return each(agent.group.id, agent.group, agent)
+            .then(function() {
+                return peer.visit_agent_next_p(agent, each);
+            });
+    },
+
+
     // NB: 'each' is a callback which will be called as
     //
     //   each(gid, group, agent, cb)
