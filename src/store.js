@@ -40,23 +40,6 @@ Store.prototype = {
     keys_p: function(kind) {
         return this.sub.keys(kind);
     },
-
-    // Manual callback based (to be phased out)
-    has: function(kind, key, cb) {
-        this.has_p(kind, key).then(cb);
-    },
-    get: function(kind, key, cb) {
-        this.get_p(kind, key).then(cb);
-    },
-    put: function(kind, key, val, cb) {
-        this.put_p(kind, key, val).then(cb);
-    },
-    del: function(kind, key, cb) {
-        this.del_p(kind, key).then(cb);
-    },
-    keys: function(kind, cb) {
-        this.keys_p(kind).then(cb);
-    }
 };
 
 // In browser, localStorage backend (synchronous)

@@ -55,15 +55,6 @@ var Agent = function(group, key, pair, peer, tag) {
 
 Agent.prototype = {
 
-    save: function(cb) {
-        var agent = this;
-        agent.peer.put_group(agent.group)
-            .then(function() {
-                agent.peer.put_agent(agent);
-            })
-            .then(cb);
-    },
-
     save_p: function() {
         var agent = this;
         return agent.peer.put_group(agent.group)

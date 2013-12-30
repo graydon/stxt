@@ -447,7 +447,7 @@ describe('Sync', function() {
                     sub_agent2_b.from(), sub_agent2_b.group.id);
                 Assert.equal(sub_agent2_a.group.id,
                              sub_agent2_b.group.id);
-                log("doing fourth  sync");
+                log("doing fourth sync");
                 a_sync.do_sync(b_remote)
                     .then(function() {
                         log("beginning GC");
