@@ -307,17 +307,24 @@ Sync.prototype = {
             } else {
                 res_d.resolve(res);
             }
-        }).otherwise(function(err) { res_d.reject(err); });
+        }).otherwise(function(err) {
+            res_d.reject(err);
+        });
         return res_d.promise;
     },
 
     // Server methods: callbacks from an RPC host environment.
-    sync_group: function(req, cb) {
+    sync_group: function(req) {
         Assert.instanceOf(this, Sync);
         var sync = this;
-        sync.step(req.sync_group, req.body).then(function(res) {
-            cb(sync.form_payload(res, req.sync_group));
-        });
+        var payload_d = when.defer();
+        sync.step(req.sync_group, req.body)
+            .then(function(res) {
+                payload_d.resolve(sync.form_payload(res, req.sync_group));
+            }).otherwise(function(err) {
+                payload_d.reject(err);
+            });
+        return payload_d.promise;
     },
 };
 
@@ -328,26 +335,31 @@ Sync.Loopback = function(peer) {
     this.syncs = {};
 };
 Sync.Loopback.prototype = {
-    step_sync: function(sync, payload, cb) {
+    step_sync: function(sync, payload) {
+        var payload_d = when.defer();
         log("in loopback.step_sync(...)");
         Assert.ok(sync.verify_payload(payload));
         log("payload verified");
-        sync.step(payload.sync_group, payload.body).then(function(res) {
-            cb(sync.form_payload(res, payload.sync_group));
-        });
+        sync.step(payload.sync_group, payload.body)
+            .then(function(res) {
+                payload_d.resolve(sync.form_payload(res, payload.sync_group));
+            }).otherwise(function(err) {
+                payload_d.reject(err);
+            });
+        return payload_d.promise;
     },
     send_request: function(method, payload, success) {
         log("in loopback.send_request({}, ..)", method);
         Assert.equal(method, "sync_group");
         var gid = payload.agent_group;
         if (gid in this.syncs) {
-            this.step_sync(this.syncs[gid], payload, success);
+            this.step_sync(this.syncs[gid], payload).done(success);
         } else {
             var loopback = this;
             this.peer.get_agent(gid).done(function(agent) {
                 var sync = new Sync(agent);
                 loopback.syncs[gid] = sync;
-                loopback.step_sync(sync, payload, success);
+                loopback.step_sync(sync, payload).done(success);
             });
         }
     }
