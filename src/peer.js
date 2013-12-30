@@ -42,12 +42,12 @@ Peer.attach = function(store, user, pw) {
     Assert.isString(user);
     var peer_d = when.defer();
 
-    store.has_p("cfg", "root-group")
+    store.has("cfg", "root-group")
         .then(function(has_root) {
             if (has_root) {
                 log("reloading root group id");
-                var gid_p = store.get_p("cfg", "root-group");
-                var salt_p = store.get_p("cfg", "agent-salt");
+                var gid_p = store.get("cfg", "root-group");
+                var salt_p = store.get("cfg", "agent-salt");
                 when.join(gid_p, salt_p).spread(function(gid, salt) {
                     var peer = new Peer(store, user, pw, salt, gid);
                     peer_d.resolve(peer.get_agent(gid));
@@ -74,11 +74,11 @@ Peer.attach = function(store, user, pw) {
                 })
                 .then(function() {
                     log("storing agent salt");
-                    return store.put_p("cfg", "agent-salt", salt);
+                    return store.put("cfg", "agent-salt", salt);
                 })
                 .then(function() {
                     log("storing root group id");
-                    return store.put_p("cfg", "root-group", group.id);
+                    return store.put("cfg", "root-group", group.id);
                 })
                 .then(function() {
                     log("made peer");
@@ -95,13 +95,13 @@ Peer.attach = function(store, user, pw) {
 
 Peer.prototype = {
     list_groups: function() {
-        return this.store.keys_p("group");
+        return this.store.keys("group");
     },
     list_agents: function() {
-        return this.store.keys_p("agent");
+        return this.store.keys("agent");
     },
     has_group: function(groupid) {
-        return this.store.has_p("group", groupid);
+        return this.store.has("group", groupid);
     },
     new_agent_for_group: function(group, key) {
         var pair = Key.genpair();
@@ -153,16 +153,16 @@ Peer.prototype = {
             this.groups[group.id] = group;
         }
         var envs = group.envelopes;
-        return this.store.put_p("group", group.id, JSON.stringify(envs));
+        return this.store.put("group", group.id, JSON.stringify(envs));
     },
 
     del_group_and_agent: function(gid) {
         var peer = this;
         delete peer.groups[gid];
         delete peer.agents[gid];
-        return peer.store.del_p("agent", gid)
+        return peer.store.del("agent", gid)
             .then(function() {
-                return peer.store.del_p("group", gid);
+                return peer.store.del("group", gid);
             });
     },
 
@@ -177,10 +177,10 @@ Peer.prototype = {
         var a = JSON.stringify({tag: agent.tag,
                                 key: agent.key,
                                 pair: agent.pair});
-        this.store.put_p("agent", agent.group.id, a);
+        this.store.put("agent", agent.group.id, a);
     },
     has_agent: function(groupid) {
-        return this.store.has_p("agent", groupid);
+        return this.store.has("agent", groupid);
     },
     get_agent: function(groupid) {
         // Records in the 'agent" table are
@@ -193,7 +193,7 @@ Peer.prototype = {
             agent_d.resolve(this.agents[groupid]);
         } else {
             peer.get_group(groupid, function(group) {
-                peer.store.get_p("agent", groupid).then(function(value) {
+                peer.store.get("agent", groupid).then(function(value) {
                     var a = JSON.parse(value);
                     var agent = new Agent(group, a.key, a.pair,
                                           peer, a.tag);
@@ -298,7 +298,7 @@ Peer.prototype = {
         return this.visit_gid_p(this.root_group_id, each);
     },
 
-    gc_p: function() {
+    gc: function() {
         // Garbage collection operates several stages:
         //
         //   - For each primary group we have agency in (one found
@@ -378,7 +378,7 @@ Peer.prototype = {
                     }
                 }
                 if (dirty) {
-                    return agent.save_p();
+                    return agent.save();
                 } else {
                     return when.resolve(null);
                 }

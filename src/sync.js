@@ -213,7 +213,7 @@ Sync.prototype = {
             }
         }
 
-        return this.agent.save_p()
+        return this.agent.save()
             .then(function() {
                 return sync.agent.peer.visit_agent_p(sync.agent, each);
             });

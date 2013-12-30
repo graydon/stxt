@@ -145,9 +145,9 @@ describe('Store', function() {
     function new_db_with_two_rows() {
         var store = new Store("mem", "Memory", Store.Memory.driver);
         var store_d = when.defer();
-        store.put_p('group', 'foo', 'bar')
+        store.put('group', 'foo', 'bar')
             .then(function() {
-                return store.put_p('group', 'baz', 'quux');
+                return store.put('group', 'baz', 'quux');
             })
             .then(function() {
                 store_d.resolve(store);
@@ -168,14 +168,14 @@ describe('Store', function() {
         it("supports put => has/!has", function(done) {
             new_db_with_two_rows()
                 .then(function(store) {
-                    return store.has_p('group', 'foo')
+                    return store.has('group', 'foo')
                         .then(function(v) {
                             Assert.ok(v);
-                            return store.has_p('group', 'baz');
+                            return store.has('group', 'baz');
                         })
                         .then(function(v) {
                             Assert.ok(v);
-                            return store.has_p('group', 'nope');
+                            return store.has('group', 'nope');
                         })
                         .then(function(v) {
                             Assert.notOk(v);
@@ -188,10 +188,10 @@ describe('Store', function() {
         it("supports put => get", function(done) {
             new_db_with_two_rows()
                 .then(function(store) {
-                    return store.get_p('group', 'foo')
+                    return store.get('group', 'foo')
                         .then(function(v) {
                             Assert.equal(v, 'bar');
-                            return store.get_p('group', 'baz');
+                            return store.get('group', 'baz');
                         })
                         .then(function(v) {
                             Assert.equal(v, 'quux');
@@ -204,7 +204,7 @@ describe('Store', function() {
         it("supports put => keys", function(done) {
             new_db_with_two_rows()
                 .then(function(store) {
-                    return store.keys_p('group')
+                    return store.keys('group')
                         .then(function(ks) {
                             Assert.isArray(ks);
                             ks.sort();
@@ -218,13 +218,13 @@ describe('Store', function() {
         it("supports put => del => !has", function(done) {
             new_db_with_two_rows()
                 .then(function(store) {
-                    return store.has_p('group', 'foo')
+                    return store.has('group', 'foo')
                         .then(function(v) {
                             Assert.ok(v);
-                            return store.del_p('group', 'foo');
+                            return store.del('group', 'foo');
                         })
                         .then(function() {
-                            return store.has_p('group', 'foo');
+                            return store.has('group', 'foo');
                         })
                         .then(function(v) {
                             Assert.notOk(v);
@@ -451,7 +451,7 @@ describe('Sync', function() {
                 a_sync.do_sync(b_remote)
                     .then(function() {
                         log("beginning GC");
-                        return peer_a.gc_p();
+                        return peer_a.gc();
                     }).then(function() {
                         log("GC complete, checking if A has group {:id}",
                             sub_agent_a.group.id);

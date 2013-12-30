@@ -25,19 +25,19 @@ var Store = function(name, backend, Driver) {
 Store.prototype = {
 
     // Direct promise interfaces
-    has_p: function(kind, key) {
+    has: function(kind, key) {
         return this.sub.has(kind, key);
     },
-    get_p: function(kind, key) {
+    get: function(kind, key) {
         return this.sub.get(kind, key);
     },
-    put_p: function(kind, key, val) {
+    put: function(kind, key, val) {
         return this.sub.put(kind, key, val);
     },
-    del_p: function(kind, key) {
+    del: function(kind, key) {
         return this.sub.del(kind, key);
     },
-    keys_p: function(kind) {
+    keys: function(kind) {
         return this.sub.keys(kind);
     },
 };

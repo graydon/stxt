@@ -55,7 +55,7 @@ var Agent = function(group, key, pair, peer, tag) {
 
 Agent.prototype = {
 
-    save_p: function() {
+    save: function() {
         var agent = this;
         return agent.peer.put_group(agent.group)
             .then(function() {
@@ -296,8 +296,8 @@ Agent.prototype = {
                     agent.set_next(next_agent.group.id);
                     next_agent.add_epoch(agent.get_graph().leaf_ids(),
                                          agent.get_state().snap());
-                    agent.save_p().then(function() {
-                        next_agent.save_p().then(function() {
+                    agent.save().then(function() {
+                        next_agent.save().then(function() {
                             done_d.resolve(next_agent);
                         });
                     });
