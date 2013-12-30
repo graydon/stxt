@@ -59,8 +59,9 @@ Peer.attach = function(store, user, pw) {
                 var salt = Hash.random();
                 var key = Hash.random();
                 var gid = Hash.hash(key);
+                var tag = Tag.new_group("root");
                 var peer = new Peer(store, user, pw, salt, gid);
-                var group = new Group(gid, peer);
+                var group = new Group(tag, gid, peer);
                 var pair = Key.genpair();
                 var agent = new Agent(group, key, pair, peer);
 
@@ -109,36 +110,51 @@ Peer.prototype = {
         this.agents[group.id] = agent;
         return agent;
     },
-    new_agent_with_new_group: function(gid, key) {
-        if (key) {
-            Assert.equal(gid, Hash.hash(key));
-        } else {
-            Assert.notOk(gid);
+
+    /**
+     * Creates a new agent attached to a new group, optionally using a
+     * provided key. If key is not provided, a new key will be randomly
+     * generated.
+     *
+     * @param {String} tag   The tag for the group.
+     * @param {String} key   The private key for the group, or null.
+     * @return {Agent}       The new agent for the new group.
+     *
+     * @see Peer#new_agent_for_group
+     */
+    new_agent_with_new_group: function(tag, key) {
+        Assert.instanceOf(tag, Tag);
+        if (!key) {
             key = Hash.random();
-            gid = Hash.hash(key);
         }
-        var group = new Group(gid, this);
+        Assert.isString(key);
+        var gid = Hash.hash(key);
+        var group = new Group(tag, gid, this);
         this.groups[gid] = group;
         return this.new_agent_for_group(group, key);
     },
+
     get_group: function(groupid) {
         Assert.instanceOf(this, Peer);
         var group_d = when.defer();
         if (groupid in this.groups) {
             group_d.resolve(this.groups[groupid]);
         } else {
-            var group = new Group(groupid, this);
-            this.groups[groupid] = group;
             this.store.get("group", groupid).then(function(value) {
                 var g = JSON.parse(value);
-                for (var i in g) {
-                    var e = g[i];
+                Assert.property(g, 'tag');
+                Assert.property(g, 'envs');
+                var tag = Tag.parse(g.tag);
+                Assert.instanceOf(tag, Tag);
+                var group = new Group(tag, groupid, this);
+                this.groups[groupid] = group;
+                for (var i in g.envs) {
+                    var e = g.envs[i];
                     Assert.equal(e.group, groupid);
                     var ee = new Msg.Envelope(e.group, e.ct);
                     Assert.equal(ee.id, i);
                     group.add_envelope(ee);
                 }
-                Assert.equal(group.id, groupid);
                 group_d.resolve(group);
             }).otherwise(function(err) {
                 group_d.reject(err);
@@ -146,14 +162,19 @@ Peer.prototype = {
         }
         return group_d.promise;
     },
+
     put_group: function(group) {
+        Assert.instanceOf(this, Peer);
         if (group.id in this.groups) {
             Assert.equal(this.groups[group.id], group);
         } else {
             this.groups[group.id] = group;
         }
         var envs = group.envelopes;
-        return this.store.put("group", group.id, JSON.stringify(envs));
+        var tag = group.tag.toString();
+        var g = { tag: tag,
+                  envs: envs };
+        return this.store.put("group", group.id, JSON.stringify(g));
     },
 
     del_group_and_agent: function(gid) {

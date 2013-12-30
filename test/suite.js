@@ -238,6 +238,7 @@ describe('Store', function() {
 
 var Peer = Stxt.Peer;
 var Agent = Stxt.Agent;
+var Tag = Stxt.Tag;
 
 function new_named_mem_peer(name) {
     var store = new Store("mem", "Memory",
@@ -321,9 +322,9 @@ describe('Agent', function() {
         new_mem_peer_root_agent().then(function(root_agent) {
             var peer = root_agent.peer;
             log("creating rererenced groups");
-            var agent_a = peer.new_agent_with_new_group();
-            var agent_b = peer.new_agent_with_new_group();
-            var agent_c = peer.new_agent_with_new_group();
+            var agent_a = peer.new_agent_with_new_group(Tag.new_group("a"));
+            var agent_b = peer.new_agent_with_new_group(Tag.new_group("b"));
+            var agent_c = peer.new_agent_with_new_group(Tag.new_group("c"));
             add_messages_and_sort(agent_a);
             add_messages_and_sort(agent_b);
             root_agent.add_link_ref(agent_a.group.id);
@@ -359,25 +360,33 @@ function setup_alice_and_bob_conversation() {
         when.join(root_agent_a_p, root_agent_b_p).spread(function(root_agent_a,
                                                                   root_agent_b) {
 
-            log("root agent A: from={}, group.id={:id}",
-                root_agent_a.from(), root_agent_a.group.id);
+            log("root agent A: from={}, group.tag={}, group.id={:id}",
+                root_agent_a.from(), root_agent_a.group.tag,
+                root_agent_a.group.id);
 
-            log("root agent B: from={}, group.id={:id}",
-                root_agent_b.from(), root_agent_b.group.id);
+            log("root agent B: from={}, group.tag={}, group.id={:id}",
+                root_agent_b.from(), root_agent_b.group.tag,
+                root_agent_b.group.id);
 
             Assert.notEqual(root_agent_a.from().toString(),
                             root_agent_b.from().toString());
 
-            var conv_agent_a = peer_a.new_agent_with_new_group();
-
-            var conv_agent_b = peer_b.new_agent_with_new_group(conv_agent_a.group.id,
+            var conv_agent_a = peer_a.new_agent_with_new_group(Tag.new_group("conv"));
+            var conv_agent_b = peer_b.new_agent_with_new_group(conv_agent_a.group.tag,
                                                                conv_agent_a.key);
 
-            log("conv agent A: from={}, group.id={:id}",
-                conv_agent_a.from(), conv_agent_b.group.id);
+            log("conv agent A: from={}, group.tag={}, group.id={:id}",
+                conv_agent_a.from(), conv_agent_b.group.tag,
+                conv_agent_b.group.id);
 
-            log("conv agent B: from={}, group.id={:id}",
-                conv_agent_b.from(), conv_agent_b.group.id);
+            log("conv agent B: from={}, group.tag={}, group.id={:id}",
+                conv_agent_b.from(), conv_agent_b.group.tag,
+                conv_agent_b.group.id);
+
+            Assert.equal(conv_agent_a.group.id, conv_agent_b.group.id);
+
+            Assert.equal(conv_agent_a.group.tag.toString(),
+                         conv_agent_b.group.tag.toString());
 
             Assert.notEqual(conv_agent_a.from().toString(),
                             conv_agent_b.from().toString());

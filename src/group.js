@@ -9,11 +9,15 @@
 "use strict";
 
 var Assert = require('./assert.js');
+var Tag = require('./tag.js');
 
-var Group = function(id, peer) {
+var Group = function(tag, id, peer) {
+    Assert.instanceOf(tag, Tag);
+    Assert.equal(tag.kind, "g");
     Assert.isString(id);
     Assert.isObject(peer);
     this.id = id;
+    this.tag = tag;
     this.peer = peer;
     this.envelopes = {};
     this.agents = [];
