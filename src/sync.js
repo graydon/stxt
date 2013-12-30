@@ -119,7 +119,7 @@ Sync.prototype = {
      * @param {String} sync_gid   The group ID to synchronize.
      * @return {Promise<Object>}  The response's .body field.
      */
-    send_request: function(remote, method, sync_gid, obj) {
+    send_request_to_remote: function(remote, method, sync_gid, obj) {
         Assert.instanceOf(this, Sync);
         Assert.isObject(remote);
         Assert.isString(method);
@@ -128,7 +128,7 @@ Sync.prototype = {
         var sync = this;
         var response_d = when.defer();
         var payload = this.form_payload(obj, sync_gid);
-        remote.send_request(method, payload, function(response) {
+        remote.send_request(method, payload).then(function(response) {
             if (sync.verify_payload(response)) {
                 response_d.resolve(response.body);
             } else {
@@ -159,7 +159,7 @@ Sync.prototype = {
         sync.step(gid, {})
             .then(function(req) {
                 log("sending 1st request for {:id}", gid);
-                sync.send_request(remote, "sync_group", gid, req)
+                sync.send_request_to_remote(remote, "sync_group", gid, req)
                     .then(function(res) {
                         log("got 1st response for {:id}", gid);
                         sync.step(gid, res)
@@ -167,8 +167,9 @@ Sync.prototype = {
                                 if (req.envelopes.length !== 0) {
                                     log("sending 2nd request for {:id}",
                                         gid);
-                                    sync.send_request(remote, "sync_group",
-                                                      gid, req)
+                                    sync.send_request_to_remote(remote,
+                                                                "sync_group",
+                                                                gid, req)
                                         .then(function() {
                                             log("got 2nd response for {:id}",
                                                 gid);
@@ -348,18 +349,19 @@ Sync.Loopback.prototype = {
             });
         return payload_d.promise;
     },
-    send_request: function(method, payload, success) {
+    send_request: function(method, payload) {
         log("in loopback.send_request({}, ..)", method);
         Assert.equal(method, "sync_group");
+        Assert.isObject(payload);
         var gid = payload.agent_group;
         if (gid in this.syncs) {
-            this.step_sync(this.syncs[gid], payload).done(success);
+            return this.step_sync(this.syncs[gid], payload);
         } else {
             var loopback = this;
-            this.peer.get_agent(gid).done(function(agent) {
+            return this.peer.get_agent(gid).then(function(agent) {
                 var sync = new Sync(agent);
                 loopback.syncs[gid] = sync;
-                loopback.step_sync(sync, payload).done(success);
+                return loopback.step_sync(sync, payload);
             });
         }
     }
