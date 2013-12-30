@@ -129,7 +129,7 @@ Peer.prototype = {
         } else {
             var group = new Group(groupid, this);
             this.groups[groupid] = group;
-            this.store.get("group", groupid).done(function(value) {
+            this.store.get("group", groupid).then(function(value) {
                 var g = JSON.parse(value);
                 for (var i in g) {
                     var e = g[i];
@@ -162,13 +162,13 @@ Peer.prototype = {
         delete peer.agents[gid];
         return peer.store.del_p("agent", gid)
             .then(function() {
-                peer.store.del_p("group", gid);
+                return peer.store.del_p("group", gid);
             });
     },
 
     // The agent interface implicitly loads the group that
     // the agent is attached to.
-    put_agent: function(agent, cb) {
+    put_agent: function(agent) {
         if (agent.group.id in this.agents) {
             Assert.equal(this.agents[agent.group.id], agent);
         } else {
@@ -177,7 +177,7 @@ Peer.prototype = {
         var a = JSON.stringify({tag: agent.tag,
                                 key: agent.key,
                                 pair: agent.pair});
-        this.store.put("agent", agent.group.id, a, cb);
+        this.store.put_p("agent", agent.group.id, a);
     },
     has_agent: function(groupid) {
         return this.store.has_p("agent", groupid);
@@ -193,7 +193,7 @@ Peer.prototype = {
             agent_d.resolve(this.agents[groupid]);
         } else {
             peer.get_group(groupid, function(group) {
-                peer.store.get_p("agent", groupid).done(function(value) {
+                peer.store.get_p("agent", groupid).then(function(value) {
                     var a = JSON.parse(value);
                     var agent = new Agent(group, a.key, a.pair,
                                           peer, a.tag);
@@ -238,7 +238,7 @@ Peer.prototype = {
                         vlog("have no agent, but group for " + gg);
                         peer.get_group(gid)
                             .then(function(group) {
-                                each(gid, group, null)
+                                when.resolve(each(gid, group, null))
                                     .then(ok)
                                     .otherwise(bad);
                             })
@@ -246,7 +246,7 @@ Peer.prototype = {
                             .otherwise(bad);
                     } else {
                         vlog("have no agent or group for " + gg);
-                        each(gid, null, null)
+                        when.resolve(each(gid, null, null))
                             .then(ok)
                             .otherwise(bad);
                     }
@@ -280,94 +280,25 @@ Peer.prototype = {
 
     visit_agent_p: function(agent, each) {
         var peer = this;
-        return each(agent.group.id, agent.group, agent)
+        return when.resolve(each(agent.group.id, agent.group, agent))
             .then(function() {
                 return peer.visit_agent_next_p(agent, each);
             });
     },
 
-
     // NB: 'each' is a callback which will be called as
     //
-    //   each(gid, group, agent, cb)
+    //   each(gid, group, agent)
     //
     // where either agent, or group-and-agent, may be null,
     // indicating a gid-link that doesn't point to anything we
-    // have. In all cases, the 'each' callback should itself
-    // complete by a call to cb() in each control-leaf, which
-    // will continue the iteration.
-    //
-    // Let's all manually CPS-convert our code! Thanks JS!
-    //
-    visit_all_linked_groups: function(each, done) {
-        this.visit_gid(this.root_group_id, each, done);
+    // have.
+
+    visit_all_linked_groups_p: function(each) {
+        return this.visit_gid_p(this.root_group_id, each);
     },
 
-    visit_gid: function(gid, each, done) {
-        var gg = Fmt.abbrev(gid);
-        var peer = this;
-        vlog("gid: " + gg);
-        peer.has_agent(gid).done(function(has) {
-            if (has) {
-                vlog("have agent for " + gg);
-                peer.get_agent(gid).done(function(agent) {
-                    peer.visit_agent(agent, each, done);
-                });
-            } else {
-                peer.has_group(gid).done(function(has) {
-                    if (has) {
-                        vlog("have no agent, but group for " + gg);
-                        peer.get_group(gid).done(function(group) {
-                            each(gid, group, null, done);
-                        });
-                    } else {
-                        vlog("have no agent or group for " + gg);
-                        each(gid, null, null, done);
-                    }
-                });
-            }
-        });
-    },
-
-    visit_agent_links: function(agent, each, done) {
-        var links = agent.get_link_refs();
-        var gg = Fmt.abbrev(agent.group.id);
-        var peer = this;
-        vlog("" + gg + " has " + links.length + " links");
-        function visit_link(n) {
-            if (n === links.length) {
-                done();
-            } else {
-                vlog("" + gg + " link #" + n +
-                     ": " + Fmt.abbrev(links[n]));
-                peer.visit_gid(links[n], each, function() {
-                    visit_link(n+1);
-                });
-            }
-        }
-        visit_link(0);
-    },
-
-    visit_agent_next: function(agent, each, done) {
-        var peer = this;
-        if (agent.next) {
-            vlog("agent {:id} next: {:id}", agent.group.id, agent.next);
-            peer.visit_gid(agent.next, each, done);
-        } else {
-            vlog("agent {:id} has no next, looking at links",
-         agent.group.id);
-            peer.visit_agent_links(agent, each, done);
-        }
-    },
-
-    visit_agent: function(agent, each, done) {
-        var peer = this;
-        each(agent.group.id, agent.group, agent, function() {
-            peer.visit_agent_next(agent, each, done);
-        });
-    },
-
-    gc: function(done_gc) {
+    gc_p: function() {
         // Garbage collection operates several stages:
         //
         //   - For each primary group we have agency in (one found
@@ -389,12 +320,14 @@ Peer.prototype = {
         //
         //   - Sweep all unreferenced groups and their agents.
 
+        var done_d = when.defer();
+
         var relinks = {};
         var all_agents = {};
         var all_groups = {};
         var peer = this;
 
-        peer.visit_all_linked_groups(function(gid, group, agent, cb) {
+        peer.visit_all_linked_groups_p(function(gid, group, agent) {
             if (agent) {
                 Assert.equal(agent.group.id, gid);
                 gclog("phase 1: found agent {:id}", gid);
@@ -403,8 +336,8 @@ Peer.prototype = {
             if (group) {
                 all_groups[gid] = true;
             }
-            cb();
-        }, function() {
+
+        }).then(function() {
             for (var gid in all_agents) {
                 var agent = all_agents[gid];
                 gclog("phase 2: inspecting agent {:id}", gid);
@@ -427,63 +360,57 @@ Peer.prototype = {
                 }
             }
 
+        }).then(function() {
             var groups_to_relink = Object.keys(all_groups);
-            var adjust_links = function(i, cb) {
-                if (i === groups_to_relink.length) {
-                    cb();
-                } else {
-                    var gid = groups_to_relink[i];
-                    gclog("phase 3: inspecting agent {:id}", gid);
-                    var agent = all_agents[gid];
-                    var links = agent.get_link_refs();
-                    var dirty = false;
-                    for (var j in links) {
-                        var link = links[j];
-                        gclog("phase 3: {:id} links to {:id}", gid, link);
-                        if (link in relinks) {
-                            gclog("phase 3: changing link in " +
-                                  "{:id}: {:id} -> {:id}",
-                                  gid, link, relinks[link]);
-                            agent.chg_link_ref(link, relinks[link]);
-                        }
-                    }
-                    if (dirty) {
-                        agent.save(function() {
-                            adjust_links(i+1, cb);
-                        });
-                    } else {
-                        adjust_links(i+1, cb);
+            return when.map(groups_to_relink, function(gid) {
+                gclog("phase 3: inspecting agent {:id}", gid);
+                var agent = all_agents[gid];
+                var links = agent.get_link_refs();
+                var dirty = false;
+                for (var j in links) {
+                    var link = links[j];
+                    gclog("phase 3: {:id} links to {:id}", gid, link);
+                    if (link in relinks) {
+                        gclog("phase 3: changing link in " +
+                              "{:id}: {:id} -> {:id}",
+                              gid, link, relinks[link]);
+                        agent.chg_link_ref(link, relinks[link]);
                     }
                 }
-            };
-            adjust_links(0, function() {
-                peer.visit_all_linked_groups(function(gid, group, agent, cb) {
-                    gclog("phase 4: {:id} still reachable", gid);
-                    delete all_groups[gid];
-                    cb();
-                }, function() {
-                    var groups_to_delete = Object.keys(all_groups);
-                    gclog("phase 5: {} groups to delete",
-                          groups_to_delete.length);
-                    function del_group(i) {
-                        if (i === groups_to_delete.length) {
-                            if (done_gc) {
-                                done_gc(relinks);
-                            }
-                        } else {
-                            var did = groups_to_delete[i];
-                            gclog("phase 5: deleting group and " +
-                                  "agent for {:id}", did);
-                            peer.del_group_and_agent(did).done(function() {
-                                del_group(i+1);
-                            });
-                        }
-                    }
-                    del_group(0);
-                });
+                if (dirty) {
+                    return agent.save_p();
+                } else {
+                    return when.resolve(null);
+                }
             });
+
+        }).then(function() {
+            return peer.visit_all_linked_groups_p(function(gid) {
+                gclog("phase 4: {:id} still reachable", gid);
+                delete all_groups[gid];
+            });
+
+        }).then(function() {
+            var groups_to_delete = Object.keys(all_groups);
+            gclog("phase 5: {} groups to delete",
+                  groups_to_delete.length);
+            return when.map(groups_to_delete, function(gid) {
+                gclog("phase 5: deleting group and " +
+                      "agent for {:id}", gid);
+                return peer.del_group_and_agent(gid);
+            });
+
+        }).then(function() {
+            gclog("finished GC");
+            done_d.resolve(relinks);
+
+        }).otherwise(function(err) {
+            gclog("GC failed");
+            done_d.reject(err);
         });
-    }
+
+        return done_d.promise;
+    },
 };
 
 module.exports = Peer;

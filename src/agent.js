@@ -57,7 +57,16 @@ Agent.prototype = {
         var agent = this;
         agent.peer.put_group(agent.group)
             .then(function() {
-                agent.peer.put_agent(agent, cb);
+                agent.peer.put_agent(agent);
+            })
+            .then(cb);
+    },
+
+    save_p: function() {
+        var agent = this;
+        return agent.peer.put_group(agent.group)
+            .then(function() {
+                return agent.peer.put_agent(agent);
             });
     },
 

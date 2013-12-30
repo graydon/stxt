@@ -7,6 +7,8 @@
 
 var when = require('when');
 
+require('when/monitor/console');
+
 var Stxt = require('../src/stxt.js');
 
 var log = Stxt.Trace.mkLog('test');
@@ -445,10 +447,10 @@ describe('Sync', function() {
                                 log("doing fourth  sync");
                                 a_sync.do_sync(b_remote).then(function() {
                                     log("beginning GC");
-                                    peer_a.gc(function() {
+                                    peer_a.gc_p().then(function() {
                                         log("GC complete, checking if A has group {:id}",
                                             sub_agent_a.group.id);
-                                        peer_a.has_group(sub_agent_a.group.id).done(function(has) {
+                                        peer_a.has_group(sub_agent_a.group.id).then(function(has) {
                                             // Check that the old group got gc'ed
                                             Assert.notOk(has);
                                             done();
