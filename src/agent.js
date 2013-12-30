@@ -8,6 +8,8 @@
 (function() {
 'use strict';
 
+var when = require('when');
+
 var Assert = require('./assert.js');
 var Fmt = require('./fmt.js');
 var Graph = require('./graph.js');
@@ -266,10 +268,12 @@ Agent.prototype = {
         }
     },
 
-    maybe_derive_next_agent: function(cb) {
+    maybe_derive_next_agent: function() {
 
         var agent = this;
         var peer = agent.peer;
+
+        var done_d = when.defer();
 
         // This will figure out if it's time to rotate, and if so
         // derive a new key, make a new group, emit a root
@@ -287,9 +291,12 @@ Agent.prototype = {
         if (agent.next) {
             log("already done group {:id}, next group {:id}",
                 agent.group.id, agent.next);
-            agent.peer.has_agent(agent.next).done(function(has) {
+            agent.peer.has_agent(agent.next).then(function(has) {
                 if (has) {
-                    agent.peer.get_agent(agent.next).then(cb);
+                    agent.peer.get_agent(agent.next)
+                        .then(function(next_agent) {
+                            done_d.resolve(next_agent);
+                        });
                 } else {
                     var next_agent =
                         peer.new_agent_with_new_group(gid, next_key);
@@ -298,20 +305,17 @@ Agent.prototype = {
                     agent.set_next(next_agent.group.id);
                     next_agent.add_epoch(agent.get_graph().leaf_ids(),
                                          agent.get_state().snap());
-                    agent.save(function() {
-                        next_agent.save(function() {
-                            if (cb) {
-                                cb(next_agent);
-                            }
+                    agent.save_p().then(function() {
+                        next_agent.save_p().then(function() {
+                            done_d.resolve(next_agent);
                         });
                     });
                 }
             });
         } else {
-            if (cb) {
-                cb(null);
-            }
+            done_d.resolve(null);
         }
+        return done_d.promise;
     },
 
     member_has_committed: function(member) {

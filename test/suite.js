@@ -425,42 +425,43 @@ describe('Sync', function() {
                 log("adding a ping from agent B");
                 sub_agent_b.add_ping();
                 log("doing second sync");
-                a_sync.do_sync(b_remote).then(function() {
-                    Assert.equal(Fmt.len(sub_agent_a.msgs), 4);
-                    log("adding another ping from agent A");
-                    sub_agent_a.add_ping();
-                    log("doing third sync");
-                    a_sync.do_sync(b_remote).then(function() {
-                        Assert.equal(Fmt.len(sub_agent_b.msgs), 5);
-                        log("attempting to rotate from agent A");
-                        sub_agent_a.maybe_derive_next_agent(function(sub_agent2_a) {
-                            log("attempting to rotate from agent B");
-                            sub_agent_b.maybe_derive_next_agent(function(sub_agent2_b) {
-                                Assert.ok(sub_agent2_a);
-                                Assert.ok(sub_agent2_b);
-                                log("derived next-agent A: from={}, group.id={:id}",
-                                    sub_agent2_a.from(), sub_agent2_a.group.id);
-                                log("derived next-agent B: from={}, group.id={:id}",
-                                    sub_agent2_b.from(), sub_agent2_b.group.id);
-                                Assert.equal(sub_agent2_a.group.id,
-                                             sub_agent2_b.group.id);
-                                log("doing fourth  sync");
-                                a_sync.do_sync(b_remote).then(function() {
-                                    log("beginning GC");
-                                    peer_a.gc_p().then(function() {
-                                        log("GC complete, checking if A has group {:id}",
-                                            sub_agent_a.group.id);
-                                        peer_a.has_group(sub_agent_a.group.id).then(function(has) {
-                                            // Check that the old group got gc'ed
-                                            Assert.notOk(has);
-                                            done();
-                                        });
-                                    });
-                                });
+                return a_sync.do_sync(b_remote);
+            }).then(function() {
+                Assert.equal(Fmt.len(sub_agent_a.msgs), 4);
+                log("adding another ping from agent A");
+                sub_agent_a.add_ping();
+                log("doing third sync");
+                return a_sync.do_sync(b_remote);
+            }).then(function() {
+                Assert.equal(Fmt.len(sub_agent_b.msgs), 5);
+                log("attempting to rotate from agent A");
+                return when.join(sub_agent_a.maybe_derive_next_agent(),
+                                 sub_agent_b.maybe_derive_next_agent());
+            }).spread(function(sub_agent2_a, sub_agent2_b) {
+                log("attempting to rotate from agent B");
+                Assert.ok(sub_agent2_a);
+                Assert.ok(sub_agent2_b);
+                log("derived next-agent A: from={}, group.id={:id}",
+                    sub_agent2_a.from(), sub_agent2_a.group.id);
+                log("derived next-agent B: from={}, group.id={:id}",
+                    sub_agent2_b.from(), sub_agent2_b.group.id);
+                Assert.equal(sub_agent2_a.group.id,
+                             sub_agent2_b.group.id);
+                log("doing fourth  sync");
+                a_sync.do_sync(b_remote)
+                    .then(function() {
+                        log("beginning GC");
+                        return peer_a.gc_p();
+                    }).then(function() {
+                        log("GC complete, checking if A has group {:id}",
+                            sub_agent_a.group.id);
+                        peer_a.has_group(sub_agent_a.group.id)
+                            .then(function(has) {
+                                // Check that the old group got gc'ed
+                                Assert.notOk(has);
+                                done();
                             });
-                        });
                     });
-                });
             });
         }).done(null, done);
     });
