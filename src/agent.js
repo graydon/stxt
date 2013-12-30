@@ -251,6 +251,12 @@ Agent.prototype = {
         return null;
     },
 
+    /**
+     * Sets this.next to given group ID. If already set, requires that
+     * next_id === this.next.
+     *
+     * @param {String} next_id  Group ID to set this.next to.
+     */
     set_next: function(next_id) {
         if (this.next) {
             Assert.equal(this.next, next_id);
@@ -259,6 +265,16 @@ Agent.prototype = {
         }
     },
 
+    /**
+     * Attempt to derive "next" key in multiparty key rotation sequence,
+     * and if successful, construct group and agent for that key, emit a
+     * new epoch message for the group, and return the new agent.
+     *
+     * @this Agent
+     * @return {Agent}   Promise for the next agent, or promise for null if
+     *                   key rotation is not yet complete.
+     * @see Agent#maybe_derive_next_key
+     */
     maybe_derive_next_agent: function() {
 
         var agent = this;
@@ -266,10 +282,6 @@ Agent.prototype = {
 
         var done_d = when.defer();
 
-        // This will figure out if it's time to rotate, and if so
-        // derive a new key, make a new group, emit a root
-        // message, new agent, etc. It returns the new agent, or
-        // null if it's not time to rotate.
         var next_key = this.maybe_derive_next_key();
 
         if (!agent.next) {

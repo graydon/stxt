@@ -7,26 +7,22 @@
 
 /* We're trying to do a key agreement between multiple parties.
  *
- * Domain parameters:
- *
- * p = prime
- * a, b = constants defining the curve
  * G = the base point on the curve, generating the group
  * n = order of the group
- * h = cofactor
  *
- * A private key is a random integer d in [1,n-1].
+ * A private key is a random integer d in [1,n-1], though to avoid
+ * a variety of attacks it's clamped to a slightly smaller range.
+ *
  * A public key is Q = dG, a group element.
  *
  * The private key is private because it's the discrete log of the public
  * key.
  *
- * When dealing with the sjcl.ecc library, public-key parts (anything
- * that's been multiplied by G) are of type 'point' and private keys are of
- * type 'bn' (bignum). So it's pretty easy to tell what you're working
- * with.
+ * Normal DH key exchange is done by Alice publishing dG, Bob publishing
+ * eG, and then deG == edG being used by both as the shared secret on both
+ * sides, thus fed into a KDF (say) for use in a symmetric cipher.
  *
- * Multiparty DH key agreement is pretty simple:
+ * Multiparty DH key exchange is a generalization of this:
  *
  * - Establish a size k of the party doing the exchange.
  *
@@ -99,8 +95,8 @@ if (Config.mpdh_key_type === "c25519") {
         // We use sjcl's fortuna for random number generation
         // but change it to c25519's representation via hex interchange.
         //
-        // an sjcl 'word' is 32-bits = 4 bytes.
-        // a c25519 key is 32 bytes = 8 words.
+        // An sjcl 'word' is 32 bits = 4 bytes.
+        // A c25519 key is 32 bytes = 8 words.
 
         var secbits = sjcl.random.randomWords(8);
 
@@ -114,7 +110,7 @@ if (Config.mpdh_key_type === "c25519") {
 
         Assert.equal(Fmt.len(sec), 64);
 
-        // basepoint for curve25519: 9
+        // Basepoint for curve25519: 9.
         var basepoint = ("09000000000000000000000000000000" +
                          "00000000000000000000000000000000");
         var pub = Key.mult(sec, basepoint);

@@ -20,6 +20,14 @@ var Group = function(id, peer) {
     Object.freeze(this);
 };
 
+
+// A group has an ID, which is the strong hash of its current private key,
+// as well as a tag used to identify it persistently, across epochs.
+//
+// That is: a tag is long-lived and copied from each group to its next
+// epoch, as keys rotate; the ID is ephemeral and associated with
+// only a single epoch.
+
 Group.prototype = {
 
     add_agent: function(ls) {

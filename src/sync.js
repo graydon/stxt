@@ -117,7 +117,7 @@ Sync.prototype = {
      * @param {Object} remote     The remote to talk to.
      * @param {String} method     The method-name to RPC on the remote.
      * @param {String} sync_gid   The group ID to synchronize.
-     * @return {Promise<Object>}  The response's .body field.
+     * @return {Object}           Promise for the response's .body field.
      */
     send_request_to_remote: function(remote, method, sync_gid, obj) {
         Assert.instanceOf(this, Sync);
@@ -147,7 +147,7 @@ Sync.prototype = {
      * @this {Sync}
      * @param {Object} remote    The remote to talk to.
      * @param {String} gid       The group to synchronize.
-     * @return Promise<>         Resolved when synchronization is complete.
+     * @return {Promise}         Null-promise, resolved when sync is complete.
      *
      */
     sync_one_group: function(remote, gid) {
@@ -193,7 +193,7 @@ Sync.prototype = {
      *
      * @this {Sync}
      * @param {Object} remote    The remote to talk to.
-     * @return Promise<>         Resolved when synchronization is complete.
+     * @return {Promise}         Null promise, resolved when sync is complete.
      */
     do_sync: function(remote) {
 
@@ -228,7 +228,7 @@ Sync.prototype = {
      * @this {Sync}
      * @param {String} sync_gid    The group to synchronize.
      * @param {Object} body        Object with .envelopes and .envelope_ids.
-     * @return Promise<res>        Promise for a similarly-structured object.
+     * @return {Object}            Promise for a similarly-structured object.
      */
 
     step: function(sync_gid, body) {
