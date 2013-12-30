@@ -26,8 +26,8 @@ Group.prototype = {
         this.agents.push(ls);
     },
 
-    save: function(cb) {
-        this.peer.put_group(this).then(function() { cb(); });
+    save: function() {
+        return this.peer.put_group(this);
     },
 
     has_envelope: function(env_id) {

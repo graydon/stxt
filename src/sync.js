@@ -294,7 +294,7 @@ Sync.prototype = {
 
             if (dirty) {
                 log("writing modified group {:id}", group.id);
-                group.save(function() {
+                group.save().then(function() {
                     res_d.resolve(res);
                 });
             } else {
