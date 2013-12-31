@@ -278,7 +278,7 @@ Peer.prototype = {
     },
 
     visit_agent_links_p: function(agent, each) {
-        var links = agent.get_link_refs();
+        var links = agent.get_linked_groups();
         var gg = Fmt.abbrev(agent.group.id);
         var peer = this;
         vlog("" + gg + " has " + links.length + " links");
@@ -322,21 +322,21 @@ Peer.prototype = {
     gc: function() {
         // Garbage collection operates several stages:
         //
-        //   - For each primary group we have agency in (one found
-        //     only by following ref=links, off the root), check any
-        //     of its agent next-linked groups that we have agency
-        //     within, to see if the next-link has been committed
-        //     to by all the group's members. If so, queue a
-        //     "relink(A,B)" event, where A is the next-group's
-        //     primary (parent) group ID and B is the next group ID.
+        //   - For each primary group we have agency in (one found only by
+        //     following linked groups, off the root), check any of its
+        //     agent next-linked groups that we have agency within, to see
+        //     if the next-link has been committed to by all the group's
+        //     members. If so, queue a "relink(A,B)" event, where A is the
+        //     next-group's primary (parent) group ID and B is the next
+        //     group ID.
         //
         //   - Process all these queued relink events. Each causes all
-        //     groups with ref:link=A to issue a chg(ref,link,A,B)
+        //     groups with links to A to issue a chg(ref,link,A,B)
         //     message, updating the group's N link-reference to point
         //     to B rather than A.
         //
         //   - Start marking from our root personal group, marking
-        //     groups as live if ref'ed (in any way) by the state of
+        //     groups as live if linked (in any way) by the state of
         //     another live group.
         //
         //   - Sweep all unreferenced groups and their agents.
@@ -386,7 +386,7 @@ Peer.prototype = {
             return when.map(groups_to_relink, function(gid) {
                 gclog("phase 3: inspecting agent {:id}", gid);
                 var agent = all_agents[gid];
-                var links = agent.get_link_refs();
+                var links = agent.get_linked_groups();
                 var dirty = false;
                 for (var j in links) {
                     var link = links[j];
@@ -395,7 +395,7 @@ Peer.prototype = {
                         gclog("phase 3: changing link in " +
                               "{:id}: {:id} -> {:id}",
                               gid, link, relinks[link]);
-                        agent.chg_link_ref(link, relinks[link]);
+                        agent.chg_link(link, relinks[link]);
                     }
                 }
                 if (dirty) {

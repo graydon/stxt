@@ -280,9 +280,9 @@ function add_messages_and_sort(agent) {
     var z = new Msg(agent.group.id, [x.id, y.id]);
     var msgs = [z, y, x];
     log("adding messages");
-    agent.add_msg_raw(x);
-    agent.add_msg_raw(y);
-    agent.add_msg_raw(z);
+    agent.encrypt_msg_and_add_to_group(x);
+    agent.encrypt_msg_and_add_to_group(y);
+    agent.encrypt_msg_and_add_to_group(z);
     log("sorting messages");
     var graph = agent.get_graph();
     graph.sort_msgs(msgs);
@@ -327,18 +327,20 @@ describe('Agent', function() {
             var agent_c = peer.new_agent_with_new_group(Tag.new_group("c"));
             add_messages_and_sort(agent_a);
             add_messages_and_sort(agent_b);
-            root_agent.add_link_ref(agent_a.group.id);
-            root_agent.add_link_ref(agent_b.group.id);
-            root_agent.chg_link_ref(agent_b.group.id,
-                                    agent_c.group.id);
-            log("got link-refs:");
-            var refs = root_agent.get_link_refs();
-            refs.forEach(function(r) {
-                log("    {:id}", r);
+            root_agent.add_share_link(agent_a.group.id);
+            root_agent.add_share_link(agent_b.group.id);
+            root_agent.chg_link(agent_b.group.id,
+                                agent_c.group.id);
+            log("got linked groups:");
+            var groups = root_agent.get_linked_groups();
+            groups.forEach(function(g) {
+                log("    {:id}", g);
             });
-            Assert.deepEqual(refs,
-                             [agent_a.group.id,
-                              agent_c.group.id]);
+            groups.sort();
+            var g2 = [agent_a.group.id,
+                      agent_c.group.id];
+            g2.sort();
+            Assert.deepEqual(groups,g2);
             done();
         }).done(null, done);
     });
@@ -391,8 +393,8 @@ function setup_alice_and_bob_conversation() {
             Assert.notEqual(conv_agent_a.from().toString(),
                             conv_agent_b.from().toString());
 
-            root_agent_a.add_link_ref(conv_agent_a.group.id);
-            root_agent_b.add_link_ref(conv_agent_b.group.id);
+            root_agent_a.add_share_link(conv_agent_a.group.id);
+            root_agent_b.add_share_link(conv_agent_b.group.id);
 
             conv_d.resolve([peer_a, peer_b,
                             root_agent_a, root_agent_b,
@@ -421,8 +423,8 @@ describe('Sync', function() {
             var b_remote = new Sync.Loopback(peer_b);
             log("adding epoch if missing");
             sub_agent_a.add_epoch_if_missing();
-            log("adding B as a member from A's agent");
-            sub_agent_a.add_member(sub_agent_b.from());
+            log("adding B as a user from A's agent");
+            sub_agent_a.add_live_user(sub_agent_b.from());
             log("adding a ping from A's agent");
             sub_agent_a.add_ping();
             log("doing initial sync");

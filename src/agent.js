@@ -138,6 +138,20 @@ Agent.prototype = {
         return s;
     },
 
+    get_state_msgs: function() {
+        var s = [];
+        this.all_msgs_in_sorted_order(function(mid, m) {
+            Assert.ok(mid);
+            Assert.ok(m);
+            if (m.kind === Msg.KIND_SET ||
+                m.kind === Msg.KIND_DEL ||
+                m.kind === Msg.KIND_CHG) {
+                s.push(m);
+            }
+        });
+        return s;
+    },
+
     get_graph: function() {
         if (! this.graph) {
             this.graph = new Graph(this.msgs);
@@ -153,7 +167,7 @@ Agent.prototype = {
             // We're in group-founding position.
             return exchs;
         }
-        var party_size = Fmt.len(this.get_members());
+        var party_size = Fmt.len(this.get_users());
         this.all_msgs_in_sorted_order(function(mid, m) {
             for (var i in m.keys) {
                 var k = m.keys[i];
@@ -338,7 +352,7 @@ Agent.prototype = {
     },
 
     members_have_committed: function() {
-        var members = this.get_members();
+        var members = this.get_users();
         var committed_members = {};
         var n = Fmt.len(members);
         var i;
@@ -391,14 +405,9 @@ Agent.prototype = {
             // following fashion:
             //
             //   - Start with the root's body as state
-            //
-            //   - Add all the 'add' msg k/v pairs
-            //   - Change all the 'chg' msg k/v1=v2 pairs
-            //   - Delete all the 'del' k/v pairs
+            //   - Apply 'set', 'chg' and 'del' messages in graph-order.
 
-            var adds = this.get_msgs_by("kind", "add");
-            var chgs = this.get_msgs_by("kind", "chg");
-            var dels = this.get_msgs_by("kind", "del");
+            var msgs = this.get_state_msgs();
             var root = this.get_graph().get_root();
 
             var state = new State();
@@ -407,33 +416,27 @@ Agent.prototype = {
                 return state;
             }
 
-            // NB: the state values in root are arrays from
-            // the snapshot of previous state multimap vals.
             if ('body' in root && 'state' in root.body) {
-                for_each_tkv(root.body.state, function(t,k,vs) {
-                    Assert.instanceOf(vs, Array);
-                    vs.forEach(function(v) {
-                        state.add_tkv(t,k,v);
-                    });
+                for_each_tkv(root.body.state, function(t,k,v) {
+                    state.set_val(t,k,v);
                 });
             }
 
-            adds.forEach(function(m) {
-                for_each_tkv(m.body, function(t,k,v) {
-                    state.add_tkv(t,k,v);
-                });
-            });
-
-            chgs.forEach(function(m) {
-                for_each_tkv(m.body, function(t,k,v) {
-                    state.chg_tkv(t,k,v[0],v[1]);
-                });
-            });
-
-            dels.forEach(function(m) {
-                for_each_tkv(m.body, function(t,k,v) {
-                    state.del_tkv(t,k,v);
-                });
+            msgs.forEach(function(m) {
+                if (m.kind === Msg.KIND_SET) {
+                    for_each_tkv(m.body, function(t,k,v) {
+                        state.set_val(t,k,v);
+                    });
+                } else if (m.kind === Msg.KIND_CHG) {
+                    for_each_tkv(m.body, function(t,k1,k2) {
+                        state.chg_key(t,k1,k2);
+                    });
+                } else {
+                    Assert.equal(m.kind, Msg.KIND_DEL);
+                    for (var t in m.body) {
+                        state.del_key(t, m.body[t]);
+                    }
+                }
             });
 
             this.state = state;
@@ -442,7 +445,7 @@ Agent.prototype = {
         return this.state;
     },
 
-    add_msg_raw: function(m) {
+    encrypt_msg_and_add_to_group: function(m) {
         this.group.add_envelope(m.encrypt(this.key));
     },
 
@@ -455,116 +458,112 @@ Agent.prototype = {
                         parents,
                         this.from(),
                         kind, body, nk);
-        this.add_msg_raw(m);
+        this.encrypt_msg_and_add_to_group(m);
         return m;
     },
+
+
 
     add_epoch: function(parents, state) {
         Assert.equal(Fmt.len(this.group.envelopes), 0);
         log("new epoch for group {:id}, from {}",
             this.group.id, this.from());
-        this.add_msg("epoch", {state: state}, parents);
+        this.add_msg(Msg.KIND_EPOCH, {state: state}, parents);
     },
 
     add_epoch_if_missing: function() {
         if (Fmt.len(this.group.envelopes) === 0) {
-            var members = {};
-            members[this.from().nick] = [this.from().guid];
-            this.add_epoch([], {member: members});
+            var user = {};
+            user[this.from().toString()] = State.USER_LIVE;
+            this.add_epoch([], {user: user});
         }
     },
 
-    add_state: function(t,k,v) {
+
+
+    set_state: function(t,k,v) {
         var ty = {};
         ty[k] = v;
         var body = {};
         body[t] = ty;
-        this.add_msg("add", body);
+        this.add_msg(Msg.KIND_SET, body);
     },
 
-    chg_state: function(t,k,v1,v2) {
-        Assert.isString(t);
-        Assert.isString(k);
-        Assert.isString(v1);
-        Assert.isString(v2);
+    chg_state: function(t,k1,k2) {
         var ty = {};
-        ty[k] = [v1,v2];
+        ty[k1] = k2;
         var body = {};
         body[t] = ty;
-        this.add_msg("chg", body);
+        this.add_msg(Msg.KIND_CHG, body);
     },
 
-    del_state: function(t,k,v) {
-        var ty = {};
-        ty[k] = v;
+    del_state: function(t,k) {
         var body = {};
-        body[t] = ty;
-        this.add_msg("del", body);
+        body[t] = k;
+        this.add_msg(Msg.KIND_DEL, body);
     },
 
-    add_ref: function(name, id) { this.add_state("ref", name, id); },
-    del_ref: function(name, id) { this.del_state("ref", name, id); },
-    chg_ref: function(name, a, b) { this.chg_state("ref", name, a, b); },
 
-    add_member: function(tag) {
-        this.add_state("member", tag.nick, tag.guid);
+
+    add_live_user: function(tag) {
+        this.set_state(State.TYPE_USER, tag.toString(), State.USER_LIVE);
     },
-    del_member: function(tag) {
-        this.del_state("member", tag.nick, tag.guid);
+
+    add_idle_user: function(tag) {
+        this.set_state(State.TYPE_USER, tag.toString(), State.USER_IDLE);
     },
-    chg_member: function(a,b) {
-        if (a.nick === b.nick) {
-            this.chg_state("member", a.nick, a.guid, b.guid);
-        } else {
-            this.del_state("member", a.nick, a.guid);
-            this.add_state("member", b.nick, b.guid);
+
+    del_user: function(tag) {
+        this.del_state(State.TYPE_USER, tag.toString());
+    },
+
+    get_users: function() {
+        Assert.instanceOf(this, Agent);
+        var tags = this.get_state().get_keys(State.TYPE_USER);
+        var users = {};
+        for (var tag in tags) {
+            users[tag] = Tag.parse(tag);
         }
+        return users;
     },
 
-    get_refs: function() {
-        return this.get_state().get_keys("ref");
-    },
-
-    add_link_ref: function(id) { this.add_ref("link", id); },
-    chg_link_ref: function(a,b) { this.chg_ref("link", a, b); },
-
-    get_link_refs: function() {
-        return this.get_state().get_vals("ref", "link");
-    },
-
-    get_all_refs: function() {
-        var all_refs = {};
-        var refs = this.get_refs();
-        for (var i in refs) {
-            for (var j in refs[i]) {
-                all_refs[j] = true;
-            }
-        }
-        return Object.keys(all_refs);
-    },
-
-    get_members: function() {
-        var nicks = this.get_state().get_keys("member");
-        var members = {};
-        for (var nick in nicks) {
-            for (var i in nicks[nick]) {
-                var guid = nicks[nick][i];
-                var tag = new Tag("u", nick, guid);
-                members[tag.toString()] = tag;
-            }
-        }
-        return members;
-    },
-
-    has_member: function(tag) {
+    has_user: function(tag) {
+        Assert.instanceOf(this, Agent);
         Assert.instanceOf(tag, Tag);
-        var nicks = this.get_state().get_keys("member");
-        return tag.nick in nicks &&
-            nicks[tag.nick].indexOf(tag.guid) !== -1;
+        var tags = this.get_state().get_keys(State.TYPE_USER);
+        return tag.toString() in tags;
     },
+
+
+
+    get_linked_groups: function() {
+        Assert.instanceOf(this, Agent);
+        return Object.keys(this.get_state().get_keys(State.TYPE_GROUP));
+    },
+
+    add_local_link: function(id) {
+        Assert.instanceOf(this, Agent);
+        Assert.isString(id);
+        this.set_state(State.TYPE_GROUP, id, State.GROUP_LOCAL);
+    },
+
+    add_share_link: function(id) {
+        Assert.instanceOf(this, Agent);
+        Assert.isString(id);
+        this.set_state(State.TYPE_GROUP, id, State.GROUP_SHARE);
+    },
+
+    chg_link: function(a,b) {
+        Assert.instanceOf(this, Agent);
+        Assert.isString(a);
+        Assert.isString(b);
+        this.chg_state(State.TYPE_GROUP, a, b);
+    },
+
+
 
     add_ping: function() {
-        this.add_msg("ping", {});
+        this.add_msg(Msg.KIND_PING, {});
     }
 };
 

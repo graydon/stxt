@@ -97,6 +97,14 @@ Msg.Envelope.prototype = {
     },
 };
 
+Msg.KIND_PING = 'ping';
+
+Msg.KIND_EPOCH = 'epoch';
+
+Msg.KIND_SET = 'set';
+Msg.KIND_DEL = 'del';
+Msg.KIND_CHG = 'chg';
+
 module.exports = Msg;
 
 })();
