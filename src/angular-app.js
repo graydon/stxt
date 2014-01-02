@@ -26,19 +26,33 @@ stxtModule.factory('stxtPeer', ['stxtStorage',
 }]);
 
 
-stxtModule.controller('stxtCtrl', ['$scope', 'stxtPeer',
-                                   function($scope, stxtPeer) {
-    $scope.username = "none";
-    stxtPeer.then(function(peer) {
-        console.log("controller got peer");
-        peer.get_root_agent().then(function(agent) {
-            var from = agent.from().toString();
-            console.log("controller got root agent: " + from);
-            $scope.$apply(function() {
-                $scope.username = from;
+stxtModule.controller(
+    'stxtPeerCtrl',['$scope', 'stxtPeer', function($scope, stxtPeer) {
+
+        $scope.new_agent_and_group = function() {
+            stxtPeer.then(function(peer) {
+                var tag = stxt.Tag.new_group($scope.groupToAdd);
+                var agent = peer.new_agent_with_new_group(tag, null);
+                agent.save().then(function() {
+                    peer.list_agents().then(function(agents) {
+                        $scope.$apply(function() {
+                            $scope.agents = agents;
+                        });
+                    });
+                });
+            });
+        };
+
+        $scope.username = "none";
+        stxtPeer.then(function(peer) {
+            peer.get_root_agent().then(function(agent) {
+                var from = agent.from().toString();
+                $scope.$apply(function() {
+                    $scope.username = from;
+                    $scope.agents = [ agent.id ];
+                });
             });
         });
-    });
-}]);
+    }]);
 
 })();

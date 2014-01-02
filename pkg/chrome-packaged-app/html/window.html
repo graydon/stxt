@@ -1,11 +1,22 @@
 <!DOCTYPE html>
-<html ng-app="stxt">
+<html data-ng-app="stxt" data-ng-csp>
   <head>
   </head>
   <body>
 
-    <div ng-controller="stxtCtrl">
-      <div>stxt: {{username}}</div>
+    <div data-ng-controller="stxtPeerCtrl">
+      <div>stxt peer: {{username}}</div>
+
+      <div class="agentlist" data-ng-repeat="agent in agents">
+        <div>
+          group: {{agent}}
+        </div>
+      </div>
+
+      <form name="groupForm">
+      <input type="text" data-ng-model="groupToAdd"/>
+      <button data-ng-click="new_agent_and_group()">add group</button>
+      </form>
     </div>
 
     <script src="/js/angular.js"></script>
