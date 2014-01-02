@@ -12,6 +12,8 @@ module.exports = function(grunt) {
                 './pkg/*.js',
                 './pkg/**/stxt.standalone.js',
                 './pkg/**/test/stxt.require.js',
+                './pkg/**/angular.js',
+                './pkg/**/angular-app.js',
                 './pkg/**/test/suite.js',
                 './pkg/**/test/mocha.*',
             ],
@@ -205,6 +207,9 @@ module.exports = function(grunt) {
              pkg("pkg/stxt.standalone.js", "js/stxt.standalone.js");
              pkg("pkg/stxt.require.js", "js/test/stxt.require.js");
              pkg("pkg/suite.js", "js/test/suite.js");
+
+             pkg("pkg/angular.js", "js/angular.js");
+             pkg("src/angular-app.js", "js/angular-app.js");
 
              pkg("node_modules/mocha/mocha.js", "js/test/mocha.js");
              pkg("node_modules/mocha/mocha.css", "css/test/mocha.css");

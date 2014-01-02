@@ -1,10 +1,15 @@
 <!DOCTYPE html>
-<html>
+<html ng-app="stxt">
   <head>
   </head>
   <body>
-    <div>stxt</div>
-	Main stxt window.
-	<script src="js/stxt.standalone.js"></script>
+
+    <div ng-controller="stxtCtrl">
+      <div>stxt: {{username}}</div>
+    </div>
+
+    <script src="/js/angular.js"></script>
+    <script src="/js/stxt.standalone.js"></script>
+    <script src="/js/angular-app.js"></script>
   </body>
 </html>
