@@ -109,6 +109,16 @@ module.exports = function(grunt) {
         },
 
         //////////////////////////////////////////////////
+        // Bower-component extraction
+        //////////////////////////////////////////////////
+
+        bower: {
+            dev: {
+                dest: 'pkg/'
+            }
+        },
+
+        //////////////////////////////////////////////////
         // grunt-mozilla-addon-sdk section
         //////////////////////////////////////////////////
         "mozilla-addon-sdk": {
@@ -210,8 +220,9 @@ module.exports = function(grunt) {
     // Testsuite task
     grunt.loadNpmTasks('grunt-mocha-cov');
 
-    // Module combining task
+    // Module combining tasks
     grunt.loadNpmTasks('grunt-browserify');
+    grunt.loadNpmTasks('grunt-bower');
 
     // Browser packaging tasks
     grunt.loadNpmTasks('grunt-mozilla-addon-sdk');
@@ -223,6 +234,7 @@ module.exports = function(grunt) {
         "clean",
         "test",
         "browserify",
+        "bower",
         "copylibs",
         "mozilla-addon-sdk",
         "mozilla-cfx-xpi",
