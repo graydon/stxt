@@ -1,22 +1,37 @@
 <!DOCTYPE html>
 <html data-ng-app="stxt" data-ng-csp>
   <head>
+    <meta charset="utf-8">
+    <title>Sneakertext</title>
+    <link rel="stylesheet" href="../../css/stxt.css" />
   </head>
   <body>
 
     <div data-ng-controller="stxtPeerCtrl">
-      <div>stxt peer: {{username}}</div>
+      <div>stxt peer: {{root_agent.from().toString()}}</div>
+      <div>curr agent: {{ curr_agent.get_group().tag.toString() }}</div>
 
-      <div class="agentlist" data-ng-repeat="agent in agents">
-        <div>
-          group: {{agent}}
+      <div style="float: left">
+        messages:
+        <div data-ng-repeat="msg in msgs">
+          msg: from {{msg.id}}
         </div>
       </div>
 
-      <form name="groupForm">
-      <input type="text" data-ng-model="groupToAdd"/>
-      <button data-ng-click="new_agent_and_group()">add group</button>
-      </form>
+      <div style="float: right">
+        <div class="agentlist"
+             data-ng-repeat="agent in agents"
+             data-ng-click="set_curr_agent(agent)">
+          group: {{agent|abbrev}}
+        </div>
+
+        <form name="groupForm">
+          <input type="text" data-ng-model="groupToAdd"/>
+          <button data-ng-click="new_agent_and_group()">add group</button>
+        </form>
+      </div>
+
+
     </div>
 
     <script src="/js/angular.js"></script>

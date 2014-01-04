@@ -34,6 +34,10 @@ var Group = function(tag, id, peer) {
 
 Group.prototype = {
 
+    get_id: function() {
+        return this.id;
+    },
+
     add_agent: function(ls) {
         this.agents.push(ls);
     },

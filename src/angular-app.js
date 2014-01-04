@@ -14,6 +14,9 @@
 "use strict";
 var stxtModule = angular.module('stxt', []);
 
+stxtModule.filter('abbrev', function() {
+    return stxt.Fmt.abbrev;
+});
 
 stxtModule.factory('stxtStorage', function() {
     return new stxt.Store("mem", "Memory", stxt.Store.Memory.driver);
@@ -29,27 +32,63 @@ stxtModule.factory('stxtPeer', ['stxtStorage',
 stxtModule.controller(
     'stxtPeerCtrl',['$scope', 'stxtPeer', function($scope, stxtPeer) {
 
+        $scope.peer = null;
+        $scope.root_agent = null;
+        $scope.curr_agent = null;
+        $scope.agents = null;
+        $scope.msgs = null;
+
+        function refresh_agents() {
+            stxtPeer.then(function(peer) {
+                peer.list_agents().then(function(agents) {
+                    $scope.$apply(function() {
+                        $scope.agents = agents;
+                    });
+                });
+            });
+        }
+
+        function refresh_msgs() {
+            var msgs = [];
+            if ($scope.curr_agent) {
+                $scope.curr_agent.all_msgs_in_sorted_order(function(msg) {
+                    msgs.push(msg);
+                });
+                $scope.msgs = msgs;
+            }
+        }
+
         $scope.new_agent_and_group = function() {
             stxtPeer.then(function(peer) {
                 var tag = stxt.Tag.new_group($scope.groupToAdd);
                 var agent = peer.new_agent_with_new_group(tag, null);
-                agent.save().then(function() {
-                    peer.list_agents().then(function(agents) {
-                        $scope.$apply(function() {
-                            $scope.agents = agents;
-                        });
-                    });
-                });
+                agent.add_ping();
+                agent.save().then(refresh_agents);
             });
         };
 
-        $scope.username = "none";
+        $scope.set_curr_agent = function(gid) {
+            if ($scope.peer) {
+                $scope.curr_agent.save().then(function() {
+                    return $scope.peer.get_agent(gid);
+                }).then(function(agent) {
+                    $scope.$apply(function() {
+                        $scope.curr_agent = agent;
+                        refresh_msgs();
+                    });
+                });
+            }
+        };
+
+
         stxtPeer.then(function(peer) {
             peer.get_root_agent().then(function(agent) {
-                var from = agent.from().toString();
                 $scope.$apply(function() {
-                    $scope.username = from;
-                    $scope.agents = [ agent.id ];
+                    $scope.peer = peer;
+                    $scope.root_agent = agent;
+                    $scope.curr_agent = agent;
+                    refresh_agents();
+                    refresh_msgs();
                 });
             });
         });

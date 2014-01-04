@@ -63,6 +63,10 @@ Agent.prototype = {
             });
     },
 
+    get_group: function() {
+        return this.group;
+    },
+
     from: function() {
         // An agent will compose messages either from an assumed tag,
         // specific to its participation in this group, or the default tag
