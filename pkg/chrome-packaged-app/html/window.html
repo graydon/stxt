@@ -7,32 +7,49 @@
   </head>
   <body>
 
-    <div data-ng-controller="stxtPeerCtrl">
-      <div>stxt peer: {{root_agent.from().toString()}}</div>
-      <div>curr agent: {{ curr_agent.get_group().tag.toString() }}</div>
+    <table id="grid" data-ng-controller="stxtPeerCtrl">
 
-      <div style="float: left">
-        messages:
-        <div data-ng-repeat="msg in msgs">
-          msg: from {{msg.id}}
-        </div>
-      </div>
+      <tr>
+        <th colspan="3">
+          <div id="status">
+            <div>stxt peer: {{root_agent.from().toString()}}</div>
+            <div>curr agent: {{ curr_agent.get_group().tag.toString() }}</div>
+          </div>
+        </th>
+      </tr>
 
-      <div style="float: right">
-        <div class="agentlist"
-             data-ng-repeat="agent in agents"
-             data-ng-click="set_curr_agent(agent)">
-          group: {{agent|abbrev}}
-        </div>
+      <tr>
 
-        <form name="groupForm">
-          <input type="text" data-ng-model="groupToAdd"/>
-          <button data-ng-click="new_agent_and_group()">add group</button>
-        </form>
-      </div>
+        <td id="groups">
+          groups:
+          <div data-ng-repeat="agent in agents"
+               data-ng-click="set_curr_agent(agent)">
+            {{agent|abbrev}}
+          </div>
 
+          <form name="groupForm">
+            <input type="text" data-ng-model="groupToAdd"/>
+            <button data-ng-click="new_agent_and_group()">add group</button>
+          </form>
+        </td>
 
-    </div>
+        <td width="75%" id="msgs">
+          messages:
+          <div data-ng-repeat="msg in msgs">
+            from: {{msg.from}} <br/>
+            kind: {{msg.kind}} <br/>
+            time: {{msg.time}} <br/>
+            body: {{msg.body}} <br/>
+          </div>
+        </td>
+
+        <td id="users">
+          users:
+        </td>
+
+      </tr>
+
+    </table>
 
     <script src="/js/angular.js"></script>
     <script src="/js/stxt.standalone.js"></script>

@@ -1,10 +1,13 @@
 @charset "utf-8";
 
-body {
-  margin:0;
-}
+#status    { }
+#msgs      { }
+#entry     { }
+
+#groups    { }
+#users     { }
 
 div {
-  margin:10px;
+  margin: 3px;
   border: 1px solid black;
 }

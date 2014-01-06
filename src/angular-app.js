@@ -51,9 +51,15 @@ stxtModule.controller(
         function refresh_msgs() {
             var msgs = [];
             if ($scope.curr_agent) {
-                $scope.curr_agent.all_msgs_in_sorted_order(function(msg) {
-                    msgs.push(msg);
-                });
+                $scope.curr_agent.all_msgs_in_sorted_order(
+                    function(mid, msg) {
+                        msgs.push({id: mid,
+                                   kind: msg.kind,
+                                   from: msg.from.toString(),
+                                   time: msg.time,
+                                   body: msg.body
+                                  });
+                    });
                 $scope.msgs = msgs;
             }
         }
