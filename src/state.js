@@ -9,9 +9,40 @@
 "use strict";
 
 var Assert = require('./assert.js');
+var Msg = require('./msg.js');
 
 var State = function() {
     this.types = {};
+};
+
+State.is_state_msg = function(m) {
+    Assert.instanceOf(m, Msg);
+    return (m.kind === Msg.KIND_EPOCH ||
+            m.kind === Msg.KIND_SET ||
+            m.kind === Msg.KIND_DEL ||
+            m.kind === Msg.KIND_CHG);
+};
+
+State.for_each_tkv = function(ob, f) {
+    Assert.isObject(ob);
+    Assert.isFunction(f);
+    for (var t in ob) {
+        Assert.isObject(ob[t]);
+        for (var k in ob[t]) {
+            f(t,k,ob[t][k]);
+        }
+    }
+};
+
+State.from_msgs = function(msgs) {
+    Assert.isArray(msgs);
+    var state = new State();
+    msgs.forEach(function(m) {
+        if (State.is_state_msg(m)) {
+            state.apply_state_msg(m);
+        }
+    });
+    return state;
 };
 
 // State is a map of key-value maps. The first level
@@ -132,7 +163,38 @@ State.prototype = {
             this.types[t] = {};
         }
         return this.types[t];
-    }
+    },
+
+    apply_state_msg: function(m) {
+        Assert.instanceOf(m, Msg);
+        Assert.instanceOf(this, State);
+
+        var state = this;
+
+        if (m.kind === Msg.KIND_SET) {
+            State.for_each_tkv(m.body, function(t,k,v) {
+                state.set_val(t,k,v);
+            });
+        } else if (m.kind === Msg.KIND_CHG) {
+            State.for_each_tkv(m.body, function(t,k1,k2) {
+                state.chg_key(t,k1,k2);
+            });
+        } else if (m.kind === Msg.KIND_DEL) {
+            for (var t in m.body) {
+                state.del_key(t, m.body[t]);
+            }
+        } else {
+            // Currently epochs are just sentinels; may grow
+            // more capabilities later.
+            Assert.equal(m.kind, Msg.KIND_EPOCH);
+        }
+
+        // Every message implicitly SETs the user it's from
+        // to 'live' in the state['user'] map.
+        state.set_val(State.TYPE_USER,
+                      m.from.toString(),
+                      State.USER_LIVE);
+    },
 
 };
 

@@ -53,6 +53,7 @@ var Agent = function(group, key, pair, peer, tag) {
     this.group.add_agent(this);
 };
 
+
 Agent.prototype = {
 
     save: function() {
@@ -96,18 +97,13 @@ Agent.prototype = {
     },
 
     decrypt_all: function() {
-        var a = this;
-        this.group.all_envelopes(function(e) {
-            a.decrypt_envelope(e);
+        var agent = this;
+        agent.group.list_envelopes().forEach(function(env_id) {
+            if (!(env_id in agent.decrypted)) {
+                var e = agent.group.get_envelope(env_id);
+                agent.decrypt_envelope(e);
+            }
         });
-    },
-
-    all_msgs: function(f) {
-        this.decrypt_all();
-        for (var i in this.msgs) {
-            var m = this.msgs[i];
-            f(i,m);
-        }
     },
 
     get_msg: function(mid) {
@@ -116,47 +112,8 @@ Agent.prototype = {
         return this.msgs[mid];
     },
 
-    all_msgs_in_sorted_order: function(f) {
-        var msgs = [];
-        this.all_msgs(function(mid, m) {
-            msgs.push(m);
-        });
-        this.get_graph().sort_msgs(msgs);
-        for (var i in msgs) {
-            var m = msgs[i];
-            f(m.id, m);
-        }
-    },
-
-    get_msgs_by: function(field, val) {
-        Assert.isString(field);
-        Assert.isString(val);
-        var s = [];
-        this.all_msgs_in_sorted_order(function(mid, m) {
-            Assert.ok(mid);
-            Assert.ok(m);
-            if (m[field] === val) {
-                s.push(m);
-            }
-        });
-        return s;
-    },
-
-    get_state_msgs: function() {
-        var s = [];
-        this.all_msgs_in_sorted_order(function(mid, m) {
-            Assert.ok(mid);
-            Assert.ok(m);
-            if (m.kind === Msg.KIND_SET ||
-                m.kind === Msg.KIND_DEL ||
-                m.kind === Msg.KIND_CHG) {
-                s.push(m);
-            }
-        });
-        return s;
-    },
-
     get_graph: function() {
+        this.decrypt_all();
         if (! this.graph) {
             this.graph = new Graph(this.msgs);
             this.graph.get_analysis();
@@ -172,7 +129,9 @@ Agent.prototype = {
             return exchs;
         }
         var party_size = Fmt.len(this.get_users());
-        this.all_msgs_in_sorted_order(function(mid, m) {
+        var msgs = this.get_graph().get_all_msgs_sorted();
+        msgs.forEach( function(m) {
+            Assert.instanceOf(m, Msg);
             for (var i in m.keys) {
                 var k = m.keys[i];
                 var e = new Key.Exch(party_size,
@@ -342,19 +301,6 @@ Agent.prototype = {
         return done_d.promise;
     },
 
-    member_has_committed: function(member) {
-        Assert.instanceOf(member, Tag);
-        var mem = member.toString();
-        this.decrypt_all();
-        for (var i in this.msgs) {
-            var m = this.msgs[i];
-            if (m.from.toString() === mem) {
-                return true;
-            }
-        }
-        return false;
-    },
-
     members_have_committed: function() {
         var members = this.get_users();
         var committed_members = {};
@@ -394,56 +340,8 @@ Agent.prototype = {
     },
 
     get_state: function() {
-
-        function for_each_tkv(ob, f) {
-            for (var t in ob) {
-                for (var k in ob[t]) {
-                    f(t,k,ob[t][k]);
-                }
-            }
-        }
-
         if (!this.state) {
-
-            // The "state" of the group is established in the
-            // following fashion:
-            //
-            //   - Start with the root's body as state
-            //   - Apply 'set', 'chg' and 'del' messages in graph-order.
-
-            var msgs = this.get_state_msgs();
-            var root = this.get_graph().get_root();
-
-            var state = new State();
-
-            if (!root) {
-                return state;
-            }
-
-            if ('body' in root && 'state' in root.body) {
-                for_each_tkv(root.body.state, function(t,k,v) {
-                    state.set_val(t,k,v);
-                });
-            }
-
-            msgs.forEach(function(m) {
-                if (m.kind === Msg.KIND_SET) {
-                    for_each_tkv(m.body, function(t,k,v) {
-                        state.set_val(t,k,v);
-                    });
-                } else if (m.kind === Msg.KIND_CHG) {
-                    for_each_tkv(m.body, function(t,k1,k2) {
-                        state.chg_key(t,k1,k2);
-                    });
-                } else {
-                    Assert.equal(m.kind, Msg.KIND_DEL);
-                    for (var t in m.body) {
-                        state.del_key(t, m.body[t]);
-                    }
-                }
-            });
-
-            this.state = state;
+            this.state = this.get_graph().calculate_final_state();
             Object.freeze(this.state);
         }
         return this.state;
@@ -469,17 +367,22 @@ Agent.prototype = {
 
 
     add_epoch: function(parents, state) {
-        Assert.equal(Fmt.len(this.group.envelopes), 0);
+        Assert.instanceOf(this, Agent);
+        var agent = this;
+        Assert.equal(Fmt.len(agent.group.envelopes), 0);
         log("new epoch for group {:id}, from {}",
-            this.group.id, this.from());
-        this.add_msg(Msg.KIND_EPOCH, {state: state}, parents);
+            agent.group.id, agent.from());
+        this.add_msg(Msg.KIND_EPOCH, {}, parents);
+        // Propagate the state forward in a sequence of new
+        // SET messages.
+        State.for_each_tkv(state, function(t,k,v) {
+            agent.set_state(t,k,v);
+        });
     },
 
     add_epoch_if_missing: function() {
         if (Fmt.len(this.group.envelopes) === 0) {
-            var user = {};
-            user[this.from().toString()] = State.USER_LIVE;
-            this.add_epoch([], {user: user});
+            this.add_epoch([], {});
         }
     },
 

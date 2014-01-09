@@ -15,24 +15,44 @@ var Fmt = require('./fmt.js');
 var Trace = require('./trace.js');
 var Assert = require('./assert.js');
 var Msg = require('./msg.js');
+var State = require('./state.js');
 
 var log = Trace.mkLog('graph');
 
 var Graph = function(msgs) {
     this.msgs = msgs;
-    this.analysis = null; // a cache
+    this.analysis = null;
 };
 
 Graph.prototype = {
 
     all_msgs: function(f) {
+        Assert.isFunction(f);
         for (var i in this.msgs) {
             var m = this.msgs[i];
             f(i,m);
         }
     },
 
+    get_all_msgs: function() {
+        var msgs = [];
+        for (var i in this.msgs) {
+            msgs.push(this.msgs[i]);
+        }
+        return msgs;
+    },
+
+    get_all_msgs_sorted: function() {
+        var msgs = [];
+        for (var i in this.msgs) {
+            msgs.push(this.msgs[i]);
+        }
+        this.sort_msgs(msgs);
+        return msgs;
+    },
+
     get_msg: function(mid) {
+        Assert.isString(mid);
         Assert.ok(mid in this.msgs);
         return this.msgs[mid];
     },
@@ -159,6 +179,19 @@ Graph.prototype = {
         });
     },
 
+    get_ancs_of: function(mid) {
+        var msgs = [];
+        Assert.isString(mid);
+        var ancs = this.get_analysis().ancs;
+        Assert.isObject(ancs);
+        if (mid in ancs) {
+            for (var i in ancs[mid]) {
+                msgs.push(ancs[mid][i]);
+            }
+        }
+        return msgs;
+    },
+
     get_root: function() {
         var roots = this.get_roots();
         var rs = [];
@@ -221,6 +254,15 @@ Graph.prototype = {
             }
         }
         msgs.sort(cmp);
+        return msgs;
+    },
+
+    calculate_state_of: function(mid) {
+        return State.from_msgs(this.get_ancs_of(mid));
+    },
+
+    calculate_final_state: function() {
+        return State.from_msgs(this.get_all_msgs());
     }
 
 };
