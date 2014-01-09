@@ -12,6 +12,7 @@ sjcl-full/
 
 *.{node,a,o,dylib}
 tmp/
+!node_modules/tmp/
 
 pids
 logs
