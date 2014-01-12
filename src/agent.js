@@ -163,7 +163,7 @@ Agent.prototype = {
             if (e.needs_user(from) &&
                 ! (nn in exchs)) {
                 var x = e.extend_with_user(from,
-                                           this.next_pair.pub);
+                                           this.next_pair.sec);
                 exchs[x.name()] = x;
                 new_exchs[x.name()] = x;
             } else {
