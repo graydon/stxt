@@ -128,16 +128,20 @@ Agent.prototype = {
             // We're in group-founding position.
             return exchs;
         }
-        var party_size = Fmt.len(this.get_users());
+        var live_users = this.get_user_names();
         var msgs = this.get_graph().get_all_msgs_sorted();
         msgs.forEach( function(m) {
             Assert.instanceOf(m, Msg);
             for (var i in m.keys) {
                 var k = m.keys[i];
-                var e = new Key.Exch(party_size,
-                                     i.split(","),
-                                     k);
-                exchs[e.name()] = e;
+                if (Key.Exch.name_valid_for_live_users(i, live_users)) {
+                    var e = new Key.Exch(live_users, i, k);
+                    Assert.equal(i, e.name());
+                    exchs[i] = e;
+                } else {
+                    klog("exchange key dropped due " +
+                         "to group membership change");
+                }
             }
         });
         return exchs;
@@ -155,13 +159,13 @@ Agent.prototype = {
         var n_other = 0;
 
         for (var i in exchs) {
-            if (i === from) {
+            var e = exchs[i];
+            if (e.has_only_user(from)) {
                 seeded_us = true;
             }
-            var e = exchs[i];
-            var nn = e.extended_name(from);
-            if (e.needs_user(from) &&
-                ! (nn in exchs)) {
+            if (! (e.is_finished()) &&
+                e.needs_user(from) &&
+                ! (e.extended_name(from) in exchs)) {
                 var x = e.extend_with_user(from,
                                            this.next_pair.sec);
                 exchs[x.name()] = x;
@@ -189,8 +193,18 @@ Agent.prototype = {
              new_exchs, n_includes_us, n_finished, n_other);
 
         if (!seeded_us) {
-            klog("seeding for {}", this.from());
-            nk[from] = this.next_pair.pub;
+            var live_users = this.get_user_names();
+            if (live_users.indexOf(from) === -1) {
+                // We might not be in this group yet; we
+                // might be founding it or publishing our
+                // first message into it before someone else
+                // has noted our existence.
+                live_users.push(from);
+            }
+            var name = Key.Exch.initial_name(live_users,from);
+            klog("seeding for {} with exch {} = {}",
+                 this.from(), name, this.next_pair.pub);
+            nk[name] = this.next_pair.pub;
         }
 
         return nk;
@@ -422,6 +436,11 @@ Agent.prototype = {
 
     del_user: function(tag) {
         this.del_state(State.TYPE_USER, tag.toString());
+    },
+
+    get_user_names: function() {
+        Assert.instanceOf(this, Agent);
+        return Object.keys(this.get_state().get_keys(State.TYPE_USER));
     },
 
     get_users: function() {

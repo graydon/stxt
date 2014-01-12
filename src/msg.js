@@ -34,11 +34,11 @@ var Msg = function(group, parents, from, kind, body, keys, time) {
                          kind:this.kind,
                          body:this.body,
                          keys:this.keys});
-    Object.freeze(this);
     Assert.isArray(this.parents);
     Assert.instanceOf(this.from, Tag);
     Assert.isString(this.kind);
     Assert.isObject(this.body);
+    Object.freeze(this);
     log("new: kind={}, from={}, group={:id}, id={:id}",
         this.kind, this.from, this.group, this.id);
 };

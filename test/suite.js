@@ -445,11 +445,10 @@ describe('Sync', function() {
                 return a_sync.do_sync(b_remote);
             }).then(function() {
                 Assert.equal(Fmt.len(sub_agent_b.msgs), 5);
-                log("attempting to rotate from agent A");
+                log("attempting to rotate agents");
                 return when.join(sub_agent_a.maybe_derive_next_agent(),
                                  sub_agent_b.maybe_derive_next_agent());
             }).spread(function(sub_agent2_a, sub_agent2_b) {
-                log("attempting to rotate from agent B");
                 Assert.ok(sub_agent2_a);
                 Assert.ok(sub_agent2_b);
                 log("derived next-agent A: from={}, group.id={:id}",

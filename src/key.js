@@ -144,56 +144,206 @@ if (Config.mpdh_key_type === "c25519") {
     };
 }
 
-// An exch-key is one that represents work-in-progress in a multi-party
-// DH key-exchange. As such, it has a public value (which is something
-// we can .mult(sec) with some secret value) as well as a list of users
-// whose secret-parts have been included (multiplied) into the key and
-// a party_size indicating how many users are involved in the exchange,
-// in total. When the user list gets to party_size - 1 and the current
-// user is the one missing from the list, the exchange is done.
-//
-// FIXME: the use of a 'party size' here is wrong; the exch needs to be
-// pinned to a target tag set when it is constructed and check
-// completeness based on the presence/absence of each tag in the target
-// tag set.
+/**
+ * Construct an exchange-Key, which is a (public) group element from the
+ * group we're doing multiparty DH negotiation in, and represents the
+ * cumulative scalar multiplication of some number of private-key-parts
+ * by some subset of the users in the group.
+ *
+ * An exchange-key is either unfinished or finished. It's finished when it
+ * lacks private key material from exactly one of its users: the "final"
+ * user who will contribute a final secret scalar and derive (by hashing
+ * the resulting group element) a shared-secret key. An exchange key is
+ * unfinished when it has any smaller subset of users. An exchange key must
+ * never have the full set of users; it should stop at one-user-missing, in
+ * order to indicate _which_ user should perform the final derivation using
+ * it.
+ *
+ * A 1-user group has a degenerate definition of "finished": it is finished
+ * when it's started, and final derivation just hashes the provided secret.
+ *
+ * @param {Array} live_users  List of user tags of users who are live
+ *                            in this group. Calculated from State.
+ *
+ * @param {String} name       Name of the key, which should be a hash of the
+ *                            sorted live user list, followed by a colon
+ *                            and a number, which is a bitset indicating
+ *                            which users have contributed to this exchange
+ *                            key, 1 for contributed, 0 for not. User bit
+ *                            number corresponds to position in sorted
+ *                            order of live_users.
+ *
+ * @param {String} pub        A public key (group element) of the DH
+ *                            group we're negotiating in.
+ *
+ * @return an instance of Key.Exch, or null if the name of the key does not
+ *         represent the hash of the provided live_users list (that is, if
+ *         the exchange must be restarted because the user list changed mid
+ *         way through rotation).
+ */
+Key.Exch = function(live_users, name, pub) {
 
-Key.Exch = function(party_size, users, pub) {
-    this.party_size = party_size;
-    users.forEach(function(u) {
+    Assert.isArray(live_users);
+    Assert.ok(live_users.length > 0);
+    Assert.ok(live_users.length <= Config.group_sz);
+    live_users.forEach(function(u) {
         // We should be called with a list of strings
         // from tag.toString() calls, not tags themselves.
-        // At least for now; possibly this should change.
+        // At least for now.
         Assert.isString(u);
     });
-    this.users = users;
+    live_users.sort();
+
+    Assert.isString(name);
+    Assert.match(name, /^[a-fA-F0-9]+:[a-fA-F0-9]+$/);
+
+    Assert.isString(pub);
+    Assert.match(pub, /^[a-fA-F0-9]+$/);
+
+    var parts = name.split(":");
+    Assert.equal(parts.length, 2);
+
+    var hash = parts[0];
+    Assert.equal(Hash.hash(live_users), hash);
+
+    var bits = parseInt(parts[1], 16);
+    Assert.ok(Number.isFinite(bits));
+    Assert.isNumber(bits);
+    Assert.ok(bits >= 0);
+    var full_mask = ((1 << live_users.length) - 1);
+    Assert.ok(bits <= full_mask);
+    if (bits === full_mask) {
+        // Degenerate case: an exch-key that is built
+        // for a 1-user group is finished when it's
+        // started.
+        Assert.equal(bits, 1);
+    }
+
+    this.live_users = live_users;
+    this.hash = hash;
+    this.bits = bits;
     this.pub = pub;
-    this.users.sort();
+    Object.freeze(this);
+    return this;
+};
+
+Key.Exch.name_valid_for_live_users = function(name, live_users) {
+    Assert.isString(name);
+    var parts = name.split(":");
+    Assert.equal(parts.length, 2);
+
+    Assert.isArray(live_users);
+    live_users.sort();
+    var hash = Hash.hash(live_users);
+
+    if (hash !== parts[0]) {
+        log("exchange key {} doesn't describe " +
+            "live-user set {}, should start with {:id}, " +
+            "discarding",
+            name, live_users, hash);
+        return false;
+    } else {
+        return true;
+    }
+};
+
+Key.Exch.initial_name = function(live_users, user) {
+    Assert.isArray(live_users);
+    Assert.isString(user);
+    Assert.ok(live_users.length <= Config.group_sz);
+    live_users.sort();
+    log("calculating initial exchange-key name for {} in {}",
+        user, live_users);
+    var i = live_users.indexOf(user);
+    Assert.ok(i !== -1);
+    Assert.ok(i < live_users.length);
+    return Hash.hash(live_users) + ":" + (1 << i).toString(16);
 };
 
 Key.Exch.prototype = {
+
+    /**
+     * Check to see if `this` exchange key contains a private
+     * scalar (private key) contribution from a given user.
+     *
+     * @param {String} user   The user to check for.
+     * @return {boolean}      True if the user is present
+     *                        in `this`, else false.
+     */
     has_user: function(user) {
-        return this.users.indexOf(user) !== -1;
+        Assert.instanceOf(this, Key.Exch);
+        Assert.isString(user);
+        var i = this.live_users.indexOf(user);
+        if (i === -1) {
+            return false;
+        }
+        return ((1 << i) & this.bits) !== 0;
     },
+
+    has_only_user: function(user) {
+        Assert.instanceOf(this, Key.Exch);
+        Assert.isString(user);
+        var i = this.live_users.indexOf(user);
+        if (i === -1) {
+            return false;
+        }
+        return ((1 << i) === this.bits);
+    },
+
+    /**
+     * Check if the exchange key contains scalar (private) keys from
+     * all-but-one of the live users.
+     *
+     * @return {boolean}   True if the key is either from a single-user
+     *                     group, or is from a multi-user group and lacks
+     *                     exactly one user's private scalar; false
+     *                     otherwise.
+     */
     is_finished: function() {
-        return (this.users.length >= this.party_size - 1);
+        Assert.instanceOf(this, Key.Exch);
+        if (this.live_users.length === 1) {
+            Assert.ok(this.bits === 1);
+            return true;
+        }
+        var n_zeroes = 0;
+        for (var i = 0; i < this.live_users.length; ++i) {
+            if (((1 << i) & this.bits) === 0) {
+                n_zeroes++;
+            }
+        }
+        Assert.ok(n_zeroes > 0);
+        return n_zeroes === 1;
     },
     needs_user: function(user) {
         return !(this.is_finished() || this.has_user(user));
     },
     extend_with_user: function(user, sec) {
-        return new Key.Exch(this.party_size,
-                            this.users.concat(user).sort(),
+        Assert.notOk(this.is_finished());
+        return new Key.Exch(this.live_users,
+                            this.extended_name(user),
                             Key.mult(sec, this.pub));
     },
     derive_final: function(sec) {
         Assert.ok(this.is_finished());
-        return Hash.hash(Key.mult(sec, this.pub));
+        if (this.live_users.length === 1) {
+            return Hash.hash(sec);
+        } else {
+            return Hash.hash(Key.mult(sec, this.pub));
+        }
     },
     extended_name: function(user) {
-        return this.users.concat(user).sort().join(",");
+        Assert.instanceOf(this, Key.Exch);
+        Assert.isString(user);
+        Assert.notOk(this.is_finished());
+        var i = this.live_users.indexOf(user);
+        Assert.ok(i !== -1);
+        Assert.ok(i < this.live_users);
+        Assert.ok(((1 << i) & this.bits) === 0);
+        return this.hash + ":" + (this.bits | (1 << 1)).toString(16);
     },
     name: function() {
-        return this.users.sort().join(",");
+        Assert.instanceOf(this, Key.Exch);
+        return this.hash + ":" + this.bits.toString(16);
     }
 };
 
