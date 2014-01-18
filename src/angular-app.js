@@ -51,9 +51,10 @@ stxtModule.controller(
         function refresh_msgs() {
             var msgs = [];
             if ($scope.curr_agent) {
-                $scope.curr_agent.all_msgs_in_sorted_order(
-                    function(mid, msg) {
-                        msgs.push({id: mid,
+                var mm = $scope.curr_agent.get_graph().get_all_msgs_sorted();
+                mm.forEach(
+                    function(msg) {
+                        msgs.push({id: msg.id,
                                    kind: msg.kind,
                                    from: msg.from.toString(),
                                    time: msg.time,
