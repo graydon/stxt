@@ -41,6 +41,10 @@
             time: {{msg.time}} <br/>
             body: {{msg.body}} <br/>
           </div>
+          <form name="msgForm">
+            <input type="text" data-ng-model="msgToAdd"/>
+            <button data-ng-click="new_msg()">send</button>
+          </form>
         </td>
 
         <td id="users">

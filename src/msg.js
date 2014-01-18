@@ -98,6 +98,7 @@ Msg.Envelope.prototype = {
 };
 
 Msg.KIND_PING = 'ping';
+Msg.KIND_CHAT = 'chat';
 
 Msg.KIND_EPOCH = 'epoch';
 

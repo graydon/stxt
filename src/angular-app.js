@@ -74,6 +74,13 @@ stxtModule.controller(
             });
         };
 
+        $scope.new_msg = function() {
+            if ($scope.curr_agent) {
+                $scope.curr_agent.add_chat($scope.msgToAdd);
+                $scope.curr_agent.save().then(refresh_msgs);
+            }
+        };
+
         $scope.set_curr_agent = function(gid) {
             if ($scope.peer) {
                 $scope.curr_agent.save().then(function() {

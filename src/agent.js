@@ -490,6 +490,10 @@ Agent.prototype = {
 
     add_ping: function() {
         this.add_msg(Msg.KIND_PING, {});
+    },
+
+    add_chat: function(txt) {
+        this.add_msg(Msg.KIND_CHAT, {text: txt});
     }
 };
 
