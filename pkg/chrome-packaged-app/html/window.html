@@ -27,9 +27,8 @@
             {{agent|abbrev}}
           </div>
 
-          <form name="groupForm">
+          <form name="groupForm" ng-submit="new_agent_and_group()">
             <input type="text" data-ng-model="groupToAdd"/>
-            <button data-ng-click="new_agent_and_group()">add group</button>
           </form>
         </td>
 
@@ -41,9 +40,8 @@
             time: {{msg.time}} <br/>
             body: {{msg.body}} <br/>
           </div>
-          <form name="msgForm">
+          <form name="msgForm" ng-submit="new_msg()">
             <input type="text" data-ng-model="msgToAdd"/>
-            <button data-ng-click="new_msg()">send</button>
           </form>
         </td>
 

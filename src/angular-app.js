@@ -70,14 +70,24 @@ stxtModule.controller(
                 var tag = stxt.Tag.new_group($scope.groupToAdd);
                 var agent = peer.new_agent_with_new_group(tag, null);
                 agent.add_ping();
-                agent.save().then(refresh_agents);
+                agent.save().then(function() {
+                    $scope.$apply(function() {
+                        $scope.groupToAdd = "";
+                        refresh_agents();
+                    });
+                });
             });
         };
 
         $scope.new_msg = function() {
             if ($scope.curr_agent) {
                 $scope.curr_agent.add_chat($scope.msgToAdd);
-                $scope.curr_agent.save().then(refresh_msgs);
+                $scope.curr_agent.save().then(function() {
+                    $scope.$apply(function() {
+                        $scope.msgToAdd = "";
+                        refresh_msgs();
+                    });
+                });
             }
         };
 
