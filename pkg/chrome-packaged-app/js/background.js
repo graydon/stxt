@@ -3,14 +3,14 @@ chrome.app.runtime.onLaunched.addListener(function() {
     'bounds': {
         'left': 100,
         'top': 100,
-        'width': 400,
+        'width': 800,
         'height': 500
     }
   });
 
   chrome.app.window.create('../html/test/test.html', {
     'bounds': {
-        'left': 600,
+        'left': 900,
         'top': 100,
         'width': 400,
         'height': 500
