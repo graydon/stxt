@@ -35,10 +35,12 @@
         <td width="75%" id="msgs">
           messages:
           <div data-ng-repeat="msg in msgs">
-            from: {{msg.from}} <br/>
-            kind: {{msg.kind}} <br/>
-            time: {{msg.time}} <br/>
-            body: {{msg.body}} <br/>
+            <span class="msghdr">
+              <span class="time">{{msg.time}}</span><br/>
+              <span class="guid">{{msg.guid}}</span>
+              <span class="nick">{{msg.nick}}</span>
+            </span> :
+            <span class="text">{{msg.text}}</span>
           </div>
           <form name="msgForm" ng-submit="new_msg()">
             <input type="text" data-ng-model="msgToAdd"/>

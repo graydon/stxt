@@ -54,12 +54,13 @@ stxtModule.controller(
                 var mm = $scope.curr_agent.get_graph().get_all_msgs_sorted();
                 mm.forEach(
                     function(msg) {
-                        msgs.push({id: msg.id,
-                                   kind: msg.kind,
-                                   from: msg.from.toString(),
-                                   time: msg.time,
-                                   body: msg.body
-                                  });
+                        if (msg.kind === stxt.Msg.KIND_CHAT) {
+                            msgs.push({nick: msg.from.nick,
+                                       guid: msg.from.guid,
+                                       time: msg.time,
+                                       text: msg.body.text
+                                      });
+                        }
                     });
                 $scope.msgs = msgs;
             }

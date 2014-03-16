@@ -1,11 +1,43 @@
 @charset "utf-8";
 
 #status    { }
-#msgs      { }
+#msgs      {
+    height: 75%;
+}
 #entry     { }
 
-#groups    { }
-#users     { }
+#groups    {
+    height: 75%;
+}
+#users     {
+    height: 75%;
+}
+
+span.nick {
+    font-weight: bold;
+}
+
+span.guid {
+    font-style: italic;
+}
+
+span.time {
+    font-size: 75%;
+    font-style: italic;
+}
+
+span.text {
+}
+
+span.msghdr {
+    margin: 0px;
+    border: 0px;
+}
+
+div.from {
+    margin: 0px;
+    border: 0px;
+}
 
 div {
   margin: 3px;
