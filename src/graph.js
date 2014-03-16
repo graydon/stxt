@@ -194,20 +194,22 @@ Graph.prototype = {
 
     get_root: function() {
         var roots = this.get_roots();
-        var rs = [];
-        for (var i in roots) {
-            rs.push(roots[i]);
-        }
-        this.sort_msgs(rs);
-        // If there are multiple roots it's not a big deal; we pick the
-        // first (which degrades to "trusting their timestamps") and assume
-        // that anyone else in the group is co-operating, since they could
-        // always manufacture a group that was earlier or redundant by any
-        // other measure we chose as well.
-        var n = Fmt.len(rs);
-        if (n === 0) {
+        if (Fmt.len(roots) === 0) {
             return null;
         }
+        var rs = [];
+        for (var i in roots) {
+            if (roots[i].kind === Msg.KIND_EPOCH) {
+                rs.push(roots[i]);
+            }
+        }
+        Assert.ok(rs.length > 0);
+        this.sort_msgs(rs);
+        // If there are multiple roots it's not a big deal; we pick the
+        // first KIND_EPOCH one (which degrades to "trusting their
+        // timestamps") and assume that anyone else in the group is
+        // co-operating, since they could always manufacture a group that
+        // was earlier or redundant by any other measure we chose as well.
         return rs[0];
     },
 

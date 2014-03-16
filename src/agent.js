@@ -24,20 +24,16 @@ var Trace = require('./trace.js');
 var log = Trace.mkLog('agent');
 var klog = Trace.mkLog('keyrot');
 
-var Agent = function(group, key, pair, peer, tag) {
+var Agent = function(group, key, pair, peer, group_tag, user_tag) {
 
     Assert.instanceOf(group, Group);
     Assert.isString(key);
     Assert.isObject(pair);
     Assert.ok(peer);
 
-    if (tag) {
-        Assert.instancecOf(tag, Tag);
-    }
-
     this.group = group;
     this.key = key;
-    this.tag = tag;  // null => use peer tag
+    this.user_tag = user_tag;  // null => use peer tag
     this.pair = pair;
     this.next_pair = Key.genpair();
     this.peer = peer;
@@ -51,6 +47,27 @@ var Agent = function(group, key, pair, peer, tag) {
     this.state = null;
 
     this.group.add_agent(this);
+
+    if (!group_tag) {
+        // If there's no group tag passed, then group must have nonempty
+        // messages, and we decrypt them all here to get the epoch and
+        // extract the group tag.
+        var epoch_root = this.get_graph().get_root();
+        Assert.instanceOf(epoch_root, Msg);
+        Assert.equal(epoch_root.kind, Msg.KIND_EPOCH);
+        Assert.property(epoch_root, "tag");
+        group_tag = new Tag(epoch_root.tag);
+    }
+    Assert.instanceOf(group_tag, Tag);
+    Assert.equal(group_tag.kind, "g");
+
+    this.group_tag = group_tag;
+
+    if (user_tag) {
+        Assert.instanceOf(user_tag, Tag);
+        Assert.equal(user_tag.kind, "u");
+    }
+
 };
 
 
@@ -72,8 +89,8 @@ Agent.prototype = {
         // An agent will compose messages either from an assumed tag,
         // specific to its participation in this group, or the default tag
         // of its peer, if no assumed one exists.
-        if (this.tag) {
-            return this.tag;
+        if (this.user_tag) {
+            return this.user_tag;
         } else {
             return this.peer.tag;
         }
@@ -284,7 +301,7 @@ Agent.prototype = {
 
         if (agent.next) {
             log("{} already done group {}, (curr {:id}, next {:id})",
-                agent.from(), agent.group.tag,
+                agent.from(), agent.group_tag,
                 agent.group.id, agent.next);
             agent.peer.has_agent(agent.next).then(function(has) {
                 if (has) {
@@ -294,14 +311,15 @@ Agent.prototype = {
                         });
                 } else {
                     var next_agent =
-                        peer.new_agent_with_new_group(agent.group.tag,
+                        peer.new_agent_with_new_group(agent.group_tag,
                                                       next_key);
                     log("{} done group {} (curr {:id}, derived next {:id})",
-                        agent.from(), agent.group.tag,
+                        agent.from(), agent.group_tag,
                         agent.group.id, next_agent.group.id);
                     agent.set_next(next_agent.group.id);
                     next_agent.add_epoch(agent.get_graph().leaf_ids(),
-                                         agent.get_state().snap());
+                                         agent.get_state().snap(),
+                                         agent.group_tag);
                     agent.save().then(function() {
                         next_agent.save().then(function() {
                             done_d.resolve(next_agent);
@@ -380,13 +398,15 @@ Agent.prototype = {
 
 
 
-    add_epoch: function(parents, state) {
+    add_epoch: function(parents, state, group_tag) {
         Assert.instanceOf(this, Agent);
         var agent = this;
         Assert.equal(Fmt.len(agent.group.envelopes), 0);
         log("new epoch for group {:id}, from {}",
             agent.group.id, agent.from());
-        this.add_msg(Msg.KIND_EPOCH, {}, parents);
+        Assert.instanceOf(group_tag, Tag);
+        var body = { tag: group_tag.toString() };
+        this.add_msg(Msg.KIND_EPOCH, body, parents);
         // Propagate the state forward in a sequence of new
         // SET messages.
         State.for_each_tkv(state, function(t,k,v) {
@@ -396,7 +416,7 @@ Agent.prototype = {
 
     add_epoch_if_missing: function() {
         if (Fmt.len(this.group.envelopes) === 0) {
-            this.add_epoch([], {});
+            this.add_epoch([], {}, this.group_tag);
         }
     },
 

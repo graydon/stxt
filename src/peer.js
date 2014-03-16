@@ -59,11 +59,11 @@ Peer.attach = function(store, user, pw) {
                 var salt = Hash.random();
                 var key = Hash.random();
                 var gid = Hash.hash(key);
-                var tag = Tag.new_group("root");
+                var group_tag = Tag.new_group("root");
                 var peer = new Peer(store, user, pw, salt, gid);
-                var group = new Group(tag, gid, peer);
+                var group = new Group(gid, peer);
                 var pair = Key.genpair();
-                var agent = new Agent(group, key, pair, peer);
+                var agent = new Agent(group, key, pair, peer, group_tag);
 
                 agent.add_epoch_if_missing();
 
@@ -104,9 +104,12 @@ Peer.prototype = {
     has_group: function(groupid) {
         return this.store.has("group", groupid);
     },
-    new_agent_for_group: function(group, key) {
+    new_agent_for_group: function(group_tag, group, key) {
+        Assert.instanceOf(group_tag, Tag);
+        Assert.instanceOf(group, Group);
+        Assert.isString(key);
         var pair = Key.genpair();
-        var agent = new Agent(group, key, pair, this);
+        var agent = new Agent(group, key, pair, this, group_tag);
         this.agents[group.id] = agent;
         return agent;
     },
@@ -122,16 +125,16 @@ Peer.prototype = {
      *
      * @see Peer#new_agent_for_group
      */
-    new_agent_with_new_group: function(tag, key) {
-        Assert.instanceOf(tag, Tag);
+    new_agent_with_new_group: function(group_tag, key) {
+        Assert.instanceOf(group_tag, Tag);
         if (!key) {
             key = Hash.random();
         }
         Assert.isString(key);
         var gid = Hash.hash(key);
-        var group = new Group(tag, gid, this);
+        var group = new Group(gid, this);
         this.groups[gid] = group;
-        return this.new_agent_for_group(group, key);
+        return this.new_agent_for_group(group_tag, group, key);
     },
 
     get_group: function(groupid) {
@@ -142,14 +145,10 @@ Peer.prototype = {
         } else {
             this.store.get("group", groupid).then(function(value) {
                 var g = JSON.parse(value);
-                Assert.property(g, 'tag');
-                Assert.property(g, 'envs');
-                var tag = Tag.parse(g.tag);
-                Assert.instanceOf(tag, Tag);
-                var group = new Group(tag, groupid, this);
+                var group = new Group(groupid, this);
                 this.groups[groupid] = group;
-                for (var i in g.envs) {
-                    var e = g.envs[i];
+                for (var i in g) {
+                    var e = g[i];
                     Assert.equal(e.group, groupid);
                     var ee = new Msg.Envelope(e.group, e.ct);
                     Assert.equal(ee.id, i);
@@ -171,10 +170,7 @@ Peer.prototype = {
             this.groups[group.id] = group;
         }
         var envs = group.envelopes;
-        var tag = group.tag.toString();
-        var g = { tag: tag,
-                  envs: envs };
-        return this.store.put("group", group.id, JSON.stringify(g));
+        return this.store.put("group", group.id, JSON.stringify(envs));
     },
 
     del_group_and_agent: function(gid) {
@@ -206,7 +202,7 @@ Peer.prototype = {
     get_agent: function(groupid) {
         // Records in the 'agent" table are
         //
-        // groupid => { tag: tag, key: groupkey, pair: keypair }
+        // groupid => { tag: usertag, key: groupkey, pair: keypair }
         //
         var peer = this;
         var agent_d = when.defer();
@@ -216,8 +212,11 @@ Peer.prototype = {
             peer.get_group(groupid, function(group) {
                 peer.store.get("agent", groupid).then(function(value) {
                     var a = JSON.parse(value);
+                    // pass null as grouptag => extract it from the group
+                    // epoch.
+                    var grouptag = null;
                     var agent = new Agent(group, a.key, a.pair,
-                                          peer, a.tag);
+                                          peer, grouptag, a.tag);
                     peer.agents[groupid] = agent;
                     agent_d.resolve(agent);
                 })

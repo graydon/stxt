@@ -9,15 +9,11 @@
 "use strict";
 
 var Assert = require('./assert.js');
-var Tag = require('./tag.js');
 
-var Group = function(tag, id, peer) {
-    Assert.instanceOf(tag, Tag);
-    Assert.equal(tag.kind, "g");
+var Group = function(id, peer) {
     Assert.isString(id);
     Assert.isObject(peer);
     this.id = id;
-    this.tag = tag;
     this.peer = peer;
     this.envelopes = {};
     this.agents = [];
@@ -25,12 +21,16 @@ var Group = function(tag, id, peer) {
 };
 
 
-// A group has an ID, which is the strong hash of its current private key,
-// as well as a tag used to identify it persistently, across epochs.
+// A group has an ID, which is the strong hash of its current private key.
 //
-// That is: a tag is long-lived and copied from each group to its next
-// epoch, as keys rotate; the ID is ephemeral and associated with
-// only a single epoch.
+// Every group also has a tag but the tag is stored in the encrypted
+// content of the group, as part of the epoch message; it only becomes
+// visible when a peer has agency in the group, so it is surfaced as a
+// field in Agent.
+//
+// A group's tag is thus its private, long-lived "identity" and copied from
+// each group to its next epoch, as keys rotate; the ID is ephemeral and
+// associated with only a single epoch.
 
 Group.prototype = {
 

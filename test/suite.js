@@ -374,7 +374,7 @@ function setup_alice_and_bob_conversation() {
                             root_agent_b.from().toString());
 
             var conv_agent_a = peer_a.new_agent_with_new_group(Tag.new_group("conv"));
-            var conv_agent_b = peer_b.new_agent_with_new_group(conv_agent_a.group.tag,
+            var conv_agent_b = peer_b.new_agent_with_new_group(conv_agent_a.group_tag,
                                                                conv_agent_a.key);
 
             log("conv agent A: from={}, group.tag={}, group.id={:id}",
@@ -387,8 +387,8 @@ function setup_alice_and_bob_conversation() {
 
             Assert.equal(conv_agent_a.group.id, conv_agent_b.group.id);
 
-            Assert.equal(conv_agent_a.group.tag.toString(),
-                         conv_agent_b.group.tag.toString());
+            Assert.equal(conv_agent_a.group_tag.toString(),
+                         conv_agent_b.group_tag.toString());
 
             Assert.notEqual(conv_agent_a.from().toString(),
                             conv_agent_b.from().toString());
