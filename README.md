@@ -277,4 +277,5 @@ Very preliminary:
 [ae]: https://en.wikipedia.org/wiki/Authenticated_encryption
 [curve25519]: http://cr.yp.to/ecdh.html
 [ccm]: https://en.wikipedia.org/wiki/CCM_mode
-[design]: http://github.com/graydon/stxt/DESIGN.md
+[design]: http://github.com/graydon/stxt/blob/master/DESIGN.md
+
