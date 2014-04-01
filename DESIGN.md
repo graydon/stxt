@@ -1,5 +1,23 @@
 # Implementation notes
 
+## Current status
+
+  - Library recently rewritten to promises and mocha tests.
+
+  - Library implements tags, messages, groups, encryption, state,
+    total ordering, key rotation, group completion,
+    completed-group GC, multi-peer symmetric synchronization.
+
+  - Library does not implement triangulation or surveying, root
+    group state-propagation.
+
+  - Old prototype HTML UI abandoned. New prototype UI just
+    beginning to be written, AngularJS, packaged as 4 separate
+    forms, chrome/firefox, extension/app.  "Works" as far as
+    packaging, running and interacting with library, but nothing
+    else. Unusable as an application.
+
+
 ## Concept vocabulary:
 
   - *Tag*: a nickname + nonce pair. Public.
@@ -58,27 +76,29 @@
     Also called Agency.
 
   - *Agent*: the combination of a user-tag, a group, and symmetric key to
-    decrypt the group, and current and next ECC keypairs for negotiation
-    of the symmetric key(s). "Having agency" means you are participating in
-    a group. The members of a group are synonymous with the set of
-    user tags who have agency in it.
+    decrypt the group, and current and next ECC keypairs for negotiation of
+    the symmetric key(s). "Having agency" means you are participating in a
+    group. The members of a group are synonymous with the set of user tags
+    who have agency in it.
 
-  - *Peer*: a collection of agents and carried groups, usually located on a
-    specific machine. A peer typically encrypts its agents under a secret
-    passphrase for storage when it is inactive. When active, a peer is the
-    root data structure for accessing agents. Every peer has a tag for
-    debugging use but it is generally unimportant. Multiple peers may be
-    joined together via a single designated backplane group.
+  - *Peer*: a collection of agents and carried groups, located on a
+    specific machine. A peer stores its agents in a "root group", the key
+    for which is itself encrypted with a machine-specific passphrase for
+    storage when it is inactive. When active, a peer is the data structure
+    that participates automatically in a root group, and owns access to the
+    keys that access agents. Multiple peers may be joined together by
+    sharing a common root group.
 
-  - *Backplane*: a special kind of group that a set of peers use to
-    synchronize their "root" peer-state through. Any message written to
-    the backplane of a set of peers is taken up unquestioningly by all
-    peers connected to it. A backplane group should only be used to keep
-    two or more peers (devices) owned by the same person, and subject to the
-    same trust considerations, in sync. Backplanes should be used sparingly
-    since there is no cross-validation of messages, trust is absolute
-    (a message exists => it is trusted). A peer is only ever a member of
-    at most one backplane group.
+  - *Root group*: a special kind of group that a set of peers use to
+    synchronize their contact and group-membership lists, agent keys and
+    shared/common identity through. Any message written to a root group is
+    taken up unquestioningly by all peers sharing it. A root group should
+    only be used to keep two or more peers (devices) owned by the same
+    person / logical identity, and subject to the same trust
+    considerations, in sync. Root groups should be used sparingly since
+    there is no cross-validation of messages, trust is absolute (a message
+    exists => it is trusted). A peer is only ever a member of at most one
+    root group.
 
   - *Links*: persistent state can carry links to other groups by ID, not
     by tag; group A linking to group B means that members of A will all
@@ -106,14 +126,39 @@
     peer repeatedly injects content-meaning messages and the drop just
     emits pings in response, carrying on the key rotation protocol.
 
+  - *Triangulating*: the process of cross-checking trust between two
+    different groups by sending a nonce into one, accompanied by a request
+    to sent it to the other. For example, if Alice is a member of two groups,
+    each private conversations that (she thinks) are with Bob and Carol, then
+    Alice can send an "Alice:Bob:Carol" triangulation nonce to Bob. Bob
+    will then send the nonce on to Carol who will send it back to Alice.
+    Upon observing the nonce returning in the private conversation with
+    Carol, Alice will have increased confidence that one of the following is true:
 
-Current capability is multi-group, one-group-per-web-ui, no verification.
+      - Someone is pretending to be Bob, and has convinced Alice and Carol
+      - Someone is pretending to be Carol, and has convinced Alice and Bob
+      - Someone is pretending to be both Bob and Carol, and has convinced Alice
+      - Bob and Carol are both who they appear to be in their respective groups
 
-Joining a group involves being invited. An invite requires only conveying a
-server-you-can-get-the-group-from, a group ID, and a group symmetric key.
-The newly-invited member tag should be added to the group before sending
-the invite, so the group does not rotate-away from the group ID in question
-before the new invitee actually attempts to join.
+    Stxt's notion of identity (which is intentionally blurry) emerges from
+    the observation that an attacker masquerading as some user may have
+    need to spend social effort maintaining the illusion in the face of
+    ongoing triangulation traffic. Of course if a peer itself is
+    compromised, this arrangement offers no stronger identity guarantee
+    than any other cryptographic system. But it combines with the _absence_
+    of long-lived keys in the system to offer _some_ sense of identity
+    while eliminating the risks of long-lived keys (non-repudiation,
+    lost passphrases, lost keys, stolen devices, etc.)
+
+  - *Surveying*: optional higher-level service running on stxt network for
+    estimating quorum of network with respect to a given message. Assuming
+    each peer indicates abstract "approval" for messages (or ignores),
+    surveying builds on fast-mix hypothesis of social networks, sends a
+    query into network with hash function that randomly partitions message
+    space, collects hyperloglog estimator of set of peers; exact
+    aggregation algorithm still TBD to minimize statistical form of
+    permitted attacks.
+
 
 ## Testing / CI automation
 
