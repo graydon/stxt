@@ -4,7 +4,7 @@
 [![Coverage Status](https://coveralls.io/repos/graydon/stxt/badge.png)](https://coveralls.io/r/graydon/stxt)
 [![Dependency Status](https://david-dm.org/graydon/stxt.png)](http://david-dm.org/graydon/stxt)
 
-Copyright: 2011-2013 Mozilla Foundation
+Copyright: 2011-2014 Mozilla Foundation
 License: ASL2.0, see LICENSE.txt
 
 This is an experimental tool for carrying on secure group
@@ -277,4 +277,4 @@ Very preliminary:
 [ae]: https://en.wikipedia.org/wiki/Authenticated_encryption
 [curve25519]: http://cr.yp.to/ecdh.html
 [ccm]: https://en.wikipedia.org/wiki/CCM_mode
-[design]: http://github.com/graydon/sneakertext/DESIGN.md
+[design]: http://github.com/graydon/stxt/DESIGN.md
